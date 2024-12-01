@@ -1,23 +1,26 @@
 version: "3"
 
 tasks:
+  # Client
   tome:
     cmds:
-      - rclone sync onedrive-dev:/ ./onedrive-dev/ -P --filter-from .rclonefilter --track-renames
-
-  commit:
+      - rclone sync onedrive-dev:/ ./onedrive-dev/ -P --filter-from client.rclonefilter --track-renames
+  topro:
     cmds:
-      - dvc add onedrive-dev
-      - git add .
-      - git commit -m "update `date +%Y%m%d.%I%M%S`"
+      - rclone sync ./onedrive-dev/ onedrive-dev:/ -P --filter-from client.rclonefilter
+
+  # Backup
   backup-onedrive:
     cmds:
-      - rclone sync ./onedrive-dev/ onedrive-dev-cript:/ -P --filter-from .rclonefilter
+      - rclone sync onedrive-dev:/ onedrive-dev-cript:/ -P --filter-from server.rclonefilter --backup-dir onedrive-dev-cript:/.rclone-backup/`date +%Y%m%d.%H%M%S`
   backup-dropbox:
     cmds:
-      - rclone sync ./onedrive-dev/ dropbox-cript:/ -P --filter-from .rclonefilter
+      - rclone sync onedrive-dev:/ dropbox-cript:/ -P --filter-from server.rclonefilter --backup-dir dropbox-cript:/.rclone-backup/`date +%Y%m%d.%H%M%S`
+  backup-yandex:
+    cmds:
+      - rclone sync onedrive-dev:/ yandex-cript:/ -P --filter-from server.rclonefilter --backup-dir yandex-cript:/.rclone-backup/`date +%Y%m%d.%H%M%S`
   backup:
-    deps: [backup-onedrive, backup-dropbox]
+    deps: [backup-onedrive, backup-dropbox, backup-yandex]
 
   web:
     cmds:

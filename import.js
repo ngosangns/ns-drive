@@ -1,5 +1,8 @@
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
+
+const platform = os.platform();
 
 // Read and parse the JSON configuration file
 const jsonConfig = JSON.parse(fs.readFileSync("config.json", "utf8"));
@@ -16,13 +19,16 @@ for (const [remoteName, config] of Object.entries(jsonConfig)) {
 
 // Path to the rclone configuration file
 const rcloneConfigPath = path.join(
-  process.env.HOME || process.env.USERPROFILE,
-  ".config",
+  platform === "win32"
+    ? process.env.APPDATA
+    : (process.env.HOME || process.env.USERPROFILE) + ".config",
   "rclone",
-  "rclone.conf",
+  "rclone.conf"
 );
 
 // Write the formatted configuration to rclone.conf
+const dirPath = path.dirname(rcloneConfigPath);
+fs.mkdirSync(dirPath, { recursive: true });
 fs.writeFileSync(rcloneConfigPath, rcloneConfigContent, "utf8");
 
 console.log("rclone configuration imported successfully.");
