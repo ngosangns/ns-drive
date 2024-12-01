@@ -1,0 +1,31 @@
+version: "3"
+
+tasks:
+  tome:
+    cmds:
+      - rclone sync onedrive-dev:/ ./onedrive-dev/ -P --filter-from .rclonefilter --track-renames
+
+  commit:
+    cmds:
+      - dvc add onedrive-dev
+      - git add .
+      - git commit -m "update `date +%Y%m%d.%I%M%S`"
+  backup-onedrive:
+    cmds:
+      - rclone sync ./onedrive-dev/ onedrive-dev-cript:/ -P --filter-from .rclonefilter
+  backup-dropbox:
+    cmds:
+      - rclone sync ./onedrive-dev/ dropbox-cript:/ -P --filter-from .rclonefilter
+  backup:
+    deps: [backup-onedrive, backup-dropbox]
+
+  web:
+    cmds:
+      - rclone rcd --rc-web-gui
+
+  export:
+    cmds:
+      - node export.js
+  import:
+    cmds:
+      - node import.js
