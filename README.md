@@ -3,12 +3,12 @@
 ## Client
 
 ```sh
-task tome # pull - first time
-task topro # push - job
+task pull # first time
+task push # job
 ```
 
 ## Server
 
 ```sh
-task backup # push - job
+task backup # job
 ```
