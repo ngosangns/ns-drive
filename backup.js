@@ -2,6 +2,7 @@ const { exec } = require("child_process");
 const os = require("os");
 
 const filterPart = "--filter-from server.rclonefilter";
+const bandwidthPart = "--bwlimit 5M";
 const timestamp = new Date()
   .toISOString()
   .replace(/[-T:.Z]/g, "")
@@ -9,7 +10,7 @@ const timestamp = new Date()
 const platform = os.platform();
 
 const backupCommand = (remoteName, timestamp) =>
-  `rclone sync onedrive-dev:/ ${remoteName}:/ -P ${filterPart} --backup-dir ${remoteName}:/.rclone-backup/${timestamp}`;
+  `rclone sync onedrive-dev:/ ${remoteName}:/ -P ${filterPart} --backup-dir ${remoteName}:/.rclone-backup/${timestamp} ${bandwidthPart} --transfers 8`;
 
 const backupAllInWindows = (commands) => {
   for (const command of commands)
