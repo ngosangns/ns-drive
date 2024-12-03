@@ -35,29 +35,7 @@ if (platform === "win32") {
   );
 
   // LaunchAgent plist content
-  const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-    <plist version="1.0">
-    <dict>
-        <key>Label</key>
-        <string>com.ngosangns.drive.backup</string>
-
-        <key>ProgramArguments</key>
-        <array>
-            <string>/opt/homebrew/bin/task</string>
-            <string>backup</string>
-        </array>
-
-        <key>WorkingDirectory</key>
-        <string>${__dirname}</string>
-
-        <key>StartInterval</key>
-        <integer>3600</integer> <!-- 12 hours in seconds -->
-
-        <key>RunAtLoad</key>
-        <true/>
-    </dict>
-    </plist>`;
+  const plistContent = fs.readFileSync("backup.macos.plist", "utf8");
 
   (async () => {
     try {
