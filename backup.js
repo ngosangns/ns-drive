@@ -59,35 +59,37 @@ const backupAllInLinux = (commands) => {
 };
 
 const commands = [];
-const fromPath = process.env.SERVER_BACKUP_FROM_PATH;
-const toPaths = process.env.SERVER_BACKUP_TO_PATHS.split(",").filter(
-  (i) => i.length
-);
-const filterPath = process.env.SERVER_BACKUP_FILTER_PATH;
-const isBackupChanges = process.env.SERVER_BACKUP_IS_BACKUP_CHANGES === "true";
-const limitBandwidth = process.env.SERVER_BACKUP_LIMIT_BANDWIDTH;
-const parallel = process.env.SERVER_BACKUP_PARALLEL;
-const now = new Date()
-  .toISOString()
-  .replace(/[-T:.Z]/g, "")
-  .slice(0, 15); // Format: yyyyMMddHHmmss
-for (const path of toPaths)
-  commands.push(
-    backupCommand(
-      fromPath,
-      path,
-      filterPath,
-      isBackupChanges,
-      limitBandwidth,
-      parallel,
-      now
-    )
-  );
+const pairs = JSON.parse(process.env.SERVER_BACKUP_PAIRS);
+for (const pair of pairs) {
+  const fromPath = pair[0];
+  const toPaths = pair[1].split(",").filter((i) => i.length);
+  const filterPath = pair[2];
+  const isBackupChanges =
+    process.env.SERVER_BACKUP_IS_BACKUP_CHANGES === "true";
+  const limitBandwidth = process.env.SERVER_BACKUP_LIMIT_BANDWIDTH;
+  const parallel = process.env.SERVER_BACKUP_PARALLEL;
+  const now = new Date()
+    .toISOString()
+    .replace(/[-T:.Z]/g, "")
+    .slice(0, 15); // Format: yyyyMMddHHmmss
+  for (const path of toPaths)
+    commands.push(
+      backupCommand(
+        fromPath,
+        path,
+        filterPath,
+        isBackupChanges,
+        limitBandwidth,
+        parallel,
+        now
+      )
+    );
 
-if (platform === "win32") {
-  backupAllInWindows(commands);
-} else if (platform === "darwin") {
-  console.log("The operating system is macOS.");
-} else {
-  backupAllInLinux(commands);
+  if (platform === "win32") {
+    backupAllInWindows(commands);
+  } else if (platform === "darwin") {
+    console.log("The operating system is macOS.");
+  } else {
+    backupAllInLinux(commands);
+  }
 }
