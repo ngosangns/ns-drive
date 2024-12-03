@@ -1,29 +1,93 @@
-const { exec } = require("child_process");
+const { exec, spawn } = require("child_process");
 const os = require("os");
-
-const filterPart = "--filter-from server.rclonefilter";
-const bandwidthPart = "--bwlimit 5M";
-const timestamp = new Date()
-  .toISOString()
-  .replace(/[-T:.Z]/g, "")
-  .slice(0, 15); // Format: yyyyMMddHHmmss
 const platform = os.platform();
 
-const backupCommand = (remoteName, timestamp) =>
-  `rclone sync onedrive-dev:/ ${remoteName}:/ -P ${filterPart} --backup-dir ${remoteName}:/.rclone-backup/${timestamp} ${bandwidthPart} --transfers 8`;
+// Build command
+const filterPart = (path) => `--filter-from ${path}`;
+const bandwidthPart = (limit) => `--bwlimit ${limit}`;
+const backupDirPart = (toPath, timestamp) =>
+  `--backup-dir ${toPath}.rclone-backup/${timestamp}`;
+const parallelPart = (num) => `--transfers ${num}`;
+const backupCommand = (
+  fromPath,
+  toPath,
+  filterPath,
+  isBackupChanges,
+  limitBandwidth,
+  parallel,
+  now
+) =>
+  `rclone sync ${fromPath} ${toPath} -P ${
+    filterPath.length ? filterPart(filterPath) : ""
+  } ${isBackupChanges ? backupDirPart(toPath, now) : ""} ${bandwidthPart(
+    limitBandwidth
+  )} ${parallelPart(parallel)}`;
 
 const backupAllInWindows = (commands) => {
   for (const command of commands)
-    exec(`start cmd.exe /k "@echo ${command} & ${command}"`)
+    exec(`start cmd.exe /k "@echo ${command} & ${command}"`);
+};
+const backupAllInLinux = (commands) => {
+  const sessionName = "ngosangns-drive-backup";
+  let tmuxCommand = [];
+  for (let i = 0; i < commands.length; i++) {
+    if (i === 0)
+      tmuxCommand.push(
+        `tmux new-session -d -s ${sessionName} '${commands[i]}'`
+      );
+    else
+      tmuxCommand.push(
+        `tmux split-window -v -t ${sessionName} '${commands[i]}'`
+      );
+  }
+  tmuxCommand.push(
+    `tmux select-layout even-horizontal`,
+    `tmux attach-session -t ${sessionName}`
+  );
+  tmuxCommand = tmuxCommand.join(" ; ").split(/\s+/g);
+
+  const process = spawn(tmuxCommand[0], tmuxCommand.slice(1), {
+    stdio: "inherit",
+    shell: true,
+  });
+  process.on("close", (code) => {
+    console.log(`tmux session "${sessionName}" closed with exit code ${code}`);
+  });
+  process.on("error", (err) => {
+    console.error(`Error running tmux: ${err.message}`);
+  });
 };
 
+const commands = [];
+const fromPath = process.env.SERVER_BACKUP_FROM_PATH;
+const toPaths = process.env.SERVER_BACKUP_TO_PATHS.split(",").filter(
+  (i) => i.length
+);
+const filterPath = process.env.SERVER_BACKUP_FILTER_PATH;
+const isBackupChanges = process.env.SERVER_BACKUP_IS_BACKUP_CHANGES === "true";
+const limitBandwidth = process.env.SERVER_BACKUP_LIMIT_BANDWIDTH;
+const parallel = process.env.SERVER_BACKUP_PARALLEL;
+const now = new Date()
+  .toISOString()
+  .replace(/[-T:.Z]/g, "")
+  .slice(0, 15); // Format: yyyyMMddHHmmss
+for (const path of toPaths)
+  commands.push(
+    backupCommand(
+      fromPath,
+      path,
+      filterPath,
+      isBackupChanges,
+      limitBandwidth,
+      parallel,
+      now
+    )
+  );
+
 if (platform === "win32") {
-  backupAllInWindows([
-    // backupCommand("onedrive-dev", timestamp),
-    backupCommand("yandex", timestamp),
-  ]);
+  backupAllInWindows(commands);
 } else if (platform === "darwin") {
   console.log("The operating system is macOS.");
 } else {
-  console.log("The operating system is neither Windows nor macOS.");
+  backupAllInLinux(commands);
 }

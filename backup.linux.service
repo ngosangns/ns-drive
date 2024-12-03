@@ -1,0 +1,11 @@
+[Unit]
+Description=Backup Service for ngosangns-drive
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/git/ngosangns-drive
+ExecStart=/root/.nvm/versions/node/v21.6.2/bin/task backup
+
+[Install]
+WantedBy=multi-user.target

@@ -1,29 +1,35 @@
 version: "3"
 
-dotenv: ['.env']
+dotenv: [".env"]
 
 tasks:
-  # Client
-  pull:
-    cmds:
-      - rclone sync onedrive-dev:/ ./onedrive-dev/ -P --filter-from $CLIENT_FILTER_PATH --track-renames --bwlimit 5M --transfers 8
-  pull-full:
-    cmds:
-      - rclone sync onedrive-dev:/ ./onedrive-dev/ -P --filter-from $CLIENT_FILTER_PATH --track-renames --bwlimit 5M --transfers 8
-  push:
-    cmds:
-      - rclone sync ./onedrive-dev/ onedrive-dev:/ -P --filter-from $CLIENT_FILTER_PATH --transfers 8
-
-  backup:
-    cmd: node backup.js
-
-  web:
-    cmds:
-      - rclone rcd --rc-web-gui
-
   export:
     cmds:
       - node export.js
   import:
     cmds:
       - node import.js
+
+  # Client
+  web:
+    cmds:
+      - rclone rcd --rc-web-gui
+  pull:
+    cmds:
+      - rclone sync $CLIENT_FROM_PATH $CLIENT_PATH -P --filter-from $CLIENT_FILTER_PATH --track-renames --bwlimit $CLIENT_LIMIT_BANDWIDTH --transfers $CLIENT_PARALLEL
+  pull-full:
+    cmds:
+      - rclone sync $CLIENT_FROM_PATH $CLIENT_PATH -P --filter-from $CLIENT_FILTER_PATH --track-renames --bwlimit $CLIENT_LIMIT_BANDWIDTH --transfers $CLIENT_PARALLEL
+  push:
+    cmds:
+      - rclone sync $CLIENT_PATH $CLIENT_FROM_PATH -P --filter-from $CLIENT_FILTER_PATH --transfers $CLIENT_PARALLEL
+
+  # Server
+  backup:
+    cmd: node backup.js
+  install-service:
+    cmds:
+      - node install-service.js
+  uninstall-service:
+    cmds:
+      - node uninstall-service.js

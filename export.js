@@ -1,19 +1,20 @@
-const { exec } = require("child_process");
 const fs = require("fs");
+const path = require("path");
+const os = require("os");
 
-exec("rclone config dump", (err, stdout, stderr) => {
-  try {
-    if (err) throw err;
-    if (stderr) throw stderr;
+const platform = os.platform();
+const rcloneConfigPath = path.join(
+  platform === "win32"
+    ? process.env.APPDATA
+    : (process.env.HOME || process.env.USERPROFILE) + "/.config",
+  "rclone",
+  "rclone.conf"
+);
 
-    const config = JSON.parse(stdout);
-    // for (const key in config) {
-    //   if (config[key].token) config[key].token = "";
-    //   if (config[key].password) config[key].password = "";
-    // }
-    fs.writeFileSync("./config.json", JSON.stringify(config, null, 2), "utf8");
-    console.log("rclone configuration updated successfully.");
-  } catch (parseError) {
-    console.error("Error parsing rclone config dump:", parseError);
+fs.copyFile(rcloneConfigPath, "./rclone.conf", (err) => {
+  if (err) {
+    console.error("Error copying the file:", err);
+  } else {
+    console.log("File copied successfully!");
   }
 });
