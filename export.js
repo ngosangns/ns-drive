@@ -7,10 +7,10 @@ exec("rclone config dump", (err, stdout, stderr) => {
     if (stderr) throw stderr;
 
     const config = JSON.parse(stdout);
-    for (const key in config) {
-      if (config[key].token) config[key].token = "";
-      if (config[key].password) config[key].password = "";
-    }
+    // for (const key in config) {
+    //   if (config[key].token) config[key].token = "";
+    //   if (config[key].password) config[key].password = "";
+    // }
     fs.writeFileSync("./config.json", JSON.stringify(config, null, 2), "utf8");
     console.log("rclone configuration updated successfully.");
   } catch (parseError) {
