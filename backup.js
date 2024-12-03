@@ -19,8 +19,8 @@ const backupAllInWindows = (commands) => {
 
 if (platform === "win32") {
   backupAllInWindows([
-    backupCommand("onedrive-dev-cript", timestamp),
-    backupCommand("yandex-cript", timestamp),
+    // backupCommand("onedrive-dev", timestamp),
+    backupCommand("yandex", timestamp),
   ]);
 } else if (platform === "darwin") {
   console.log("The operating system is macOS.");
