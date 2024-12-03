@@ -4,18 +4,20 @@ const platform = os.platform();
 
 const SERVER_BACKUP_PAIRS = [
   {
-    from: "onedrive-dev:/",
-    to: ["yandex:/"],
+    from: "google-drive:/drive/",
+    to: ["yandex:/drive/"],
+    backupChangesPath: "yandex:/drive/.rclone-backup/",
     filterPath: ".rclonefilter.server",
-    isBackupChanges: true,
+    isBackupChanges: false,
     limitBandwidth: "9999M",
     parallel: 24,
   },
   {
-    from: "google-photos:/media/all",
-    to: ["yandex:/.google-photos/media/all"],
+    from: "google-photos:/media/all/",
+    to: ["yandex:/google-photos/media/all/"],
     filterPath: "",
-    isBackupChanges: true,
+    isBackupChanges: false,
+    backupChangesPath: "yandex:/.rclone-backup/google-photos/media/all/",
     limitBandwidth: "9999M",
     parallel: 24,
   },
@@ -24,30 +26,31 @@ const SERVER_BACKUP_PAIRS = [
 // Build command
 const filterPart = (path) => `--filter-from ${path}`;
 const bandwidthPart = (limit) => `--bwlimit ${limit}`;
-const backupDirPart = (toPath, timestamp) =>
-  `--backup-dir ${toPath}.rclone-backup/${timestamp}`;
+const backupDirPart = (backupChangesPath, timestamp) =>
+  `--backup-dir ${backupChangesPath}/${timestamp}`;
 const parallelPart = (num) => `--transfers ${num}`;
 const backupCommand = (
   fromPath,
   toPath,
   filterPath,
   isBackupChanges,
+  backupChangesPath,
   limitBandwidth,
   parallel,
   now
 ) =>
   `rclone sync ${fromPath} ${toPath} -P ${
     filterPath.length ? filterPart(filterPath) : ""
-  } ${isBackupChanges ? backupDirPart(toPath, now) : ""} ${bandwidthPart(
-    limitBandwidth
-  )} ${parallelPart(parallel)}`;
+  } ${
+    isBackupChanges ? backupDirPart(backupChangesPath, now) : ""
+  } ${bandwidthPart(limitBandwidth)} ${parallelPart(parallel)}`;
 
 const backupAllInWindows = (commands) => {
   for (const command of commands)
     exec(`start cmd.exe /k "@echo ${command} & ${command}"`);
 };
-const backupAllInLinux = (commands) => {
-  const sessionName = "ngosangns-drive-backup";
+const backupAllInLinux = (commands, timestamp) => {
+  const sessionName = "ngosangns-drive-backup-" + timestamp;
   let tmuxCommand = [];
   for (let i = 0; i < commands.length; i++) {
     if (i === 0)
@@ -83,13 +86,14 @@ for (const pair of SERVER_BACKUP_PAIRS) {
     .toISOString()
     .replace(/[-T:.Z]/g, "")
     .slice(0, 15); // Format: yyyyMMddHHmmss
-  for (const path of pair.to.split(",").filter((i) => i.length))
+  for (const path of pair.to)
     commands.push(
       backupCommand(
         pair.from,
         path,
         pair.filterPath,
         pair.isBackupChanges,
+        pair.backupChangesPath,
         pair.limitBandwidth,
         pair.parallel,
         now
@@ -98,9 +102,7 @@ for (const pair of SERVER_BACKUP_PAIRS) {
 
   if (platform === "win32") {
     backupAllInWindows(commands);
-  } else if (platform === "darwin") {
-    console.log("The operating system is macOS.");
   } else {
-    backupAllInLinux(commands);
+    backupAllInLinux(commands, now);
   }
 }
