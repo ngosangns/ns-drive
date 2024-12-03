@@ -26,7 +26,7 @@ tasks:
 
   # Server
   backup:
-    cmd: node backup.js
+    cmd: node server-backup.js
   install-service:
     cmds:
       - node install-service.js

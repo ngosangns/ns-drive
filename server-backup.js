@@ -2,6 +2,25 @@ const { exec, spawn } = require("child_process");
 const os = require("os");
 const platform = os.platform();
 
+const SERVER_BACKUP_PAIRS = [
+  {
+    from: "onedrive-dev:/",
+    to: ["yandex:/"],
+    filterPath: ".rclonefilter.server",
+    isBackupChanges: true,
+    limitBandwidth: "9999M",
+    parallel: 24,
+  },
+  {
+    from: "google-photos:/media/all",
+    to: ["yandex:/.google-photos/media/all"],
+    filterPath: "",
+    isBackupChanges: true,
+    limitBandwidth: "9999M",
+    parallel: 24,
+  },
+];
+
 // Build command
 const filterPart = (path) => `--filter-from ${path}`;
 const bandwidthPart = (limit) => `--bwlimit ${limit}`;
@@ -59,28 +78,20 @@ const backupAllInLinux = (commands) => {
 };
 
 const commands = [];
-const pairs = JSON.parse(process.env.SERVER_BACKUP_PAIRS);
-for (const pair of pairs) {
-  const fromPath = pair[0];
-  const toPaths = pair[1].split(",").filter((i) => i.length);
-  const filterPath = pair[2];
-  const isBackupChanges =
-    process.env.SERVER_BACKUP_IS_BACKUP_CHANGES === "true";
-  const limitBandwidth = process.env.SERVER_BACKUP_LIMIT_BANDWIDTH;
-  const parallel = process.env.SERVER_BACKUP_PARALLEL;
+for (const pair of SERVER_BACKUP_PAIRS) {
   const now = new Date()
     .toISOString()
     .replace(/[-T:.Z]/g, "")
     .slice(0, 15); // Format: yyyyMMddHHmmss
-  for (const path of toPaths)
+  for (const path of pair.to.split(",").filter((i) => i.length))
     commands.push(
       backupCommand(
-        fromPath,
+        pair.from,
         path,
-        filterPath,
-        isBackupChanges,
-        limitBandwidth,
-        parallel,
+        pair.filterPath,
+        pair.isBackupChanges,
+        pair.limitBandwidth,
+        pair.parallel,
         now
       )
     );
