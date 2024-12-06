@@ -5,7 +5,8 @@ After=network.target
 [Service]
 Type=oneshot
 WorkingDirectory=/root/git/ngosangns-drive
-ExecStart=/root/.nvm/versions/node/v21.6.2/bin/task backup
+ExecStart=/root/.nvm/versions/node/v21.6.2/bin/node server-backup.js
+User=root
 
 [Install]
 WantedBy=multi-user.target
