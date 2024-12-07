@@ -46,5 +46,6 @@ tasks:
       # - chmod +x build/bin/desktop.app/Contents/MacOS/desktop
       - rm -rf ../desktop.app
       - mv build/bin/desktop.app ../desktop.app
-      - open ../desktop.app
+      - cp ../Entitlements.plist ../desktop.app/Contents
+      # - open ../desktop.app
     dir: desktop
