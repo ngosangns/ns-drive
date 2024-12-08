@@ -110,30 +110,23 @@ func (a *App) CdToNormalizeWorkingDir() error {
 
 // runRcloneSync runs the rclone sync command with the provided arguments
 func (a *App) RunRcloneSync(args ...string) error {
-	cmdStr := []string{}
+	cmdArr := append([]string{"task"}, args...)
 
-	if a.GetPlatform() == Darwin.String() {
-		cmdStr = append([]string{"/bin/zsh", "-l", "-c", "task"}, args...)
-	} else if a.GetPlatform() == Windows.String() {
-		cmdStr = append([]string{"task"}, args...)
-	}
-
-	cmd := exec.Command(cmdStr[0], cmdStr[1:]...)
+	cmd := exec.Command(cmdArr[0], cmdArr[1:]...)
 	cmd.Stdout = Om
 	cmd.Stderr = Om
 
 	go func() {
 		for data := range Im {
-			if string(data) == string(StopCommand) {
+			if string(data) == StopCommand.String() {
 				if err := cmd.Process.Kill(); err != nil {
 					Om <- []byte(ErrorPrefix.String() + err.Error())
 					a.LogError(err)
-					break
-				} else {
-					Om <- []byte(CommandStoped)
-					break
 				}
-			} else if string(data) == string(CommandStoped) {
+
+				Om <- []byte(CommandStoped)
+				break
+			} else if string(data) == CommandStoped.String() {
 				break
 			}
 		}
@@ -144,6 +137,7 @@ func (a *App) RunRcloneSync(args ...string) error {
 		Om <- []byte(ErrorPrefix.String() + err.Error())
 		a.LogError(err)
 	}
+	Om <- []byte(CommandStoped)
 	Im <- []byte(CommandStoped)
 	return err
 }
