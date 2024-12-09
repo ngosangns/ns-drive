@@ -22,6 +22,7 @@ const SERVER_BACKUP_PAIRS = [
     parallel: 24,
   },
 ];
+const IS_USE_TMUX = false;
 
 // Build command
 const filterPart = (path) => `--filter-from ${path}`;
@@ -50,34 +51,53 @@ const backupAllInWindows = (commands) => {
     exec(`start cmd.exe /k "@echo ${command} & ${command}"`);
 };
 const backupAllInLinux = (commands, timestamp) => {
-  const sessionName = "ngosangns-drive-backup-" + timestamp;
   let tmuxCommand = [];
-  for (let i = 0; i < commands.length; i++) {
-    if (i === 0)
-      tmuxCommand.push(
-        `tmux new-session -d -s ${sessionName} '${commands[i]}'`
-      );
-    else
-      tmuxCommand.push(
-        `tmux split-window -v -t ${sessionName} '${commands[i]}'`
-      );
-  }
-  tmuxCommand.push(
-    `tmux select-layout even-horizontal`,
-    `tmux attach-session -t ${sessionName}`
-  );
-  tmuxCommand = tmuxCommand.join(" ; ").split(/\s+/g);
 
-  const process = spawn(tmuxCommand[0], tmuxCommand.slice(1), {
-    stdio: "inherit",
-    shell: true,
-  });
-  process.on("close", (code) => {
-    console.log(`tmux session "${sessionName}" closed with exit code ${code}`);
-  });
-  process.on("error", (err) => {
-    console.error(`Error running tmux: ${err.message}`);
-  });
+  if (IS_USE_TMUX) {
+    const sessionName = "ngosangns-drive-backup-" + timestamp;
+    for (let i = 0; i < commands.length; i++) {
+      if (i === 0)
+        tmuxCommand.push(
+          `tmux new-session -d -s ${sessionName} '${commands[i]}'`
+        );
+      else
+        tmuxCommand.push(
+          `tmux split-window -v -t ${sessionName} '${commands[i]}'`
+        );
+    }
+    tmuxCommand.push(
+      `tmux select-layout even-horizontal`,
+      `tmux attach-session -t ${sessionName}`
+    );
+    tmuxCommand = tmuxCommand.join(" ; ").split(/\s+/g);
+
+    const process = spawn(tmuxCommand[0], tmuxCommand.slice(1), {
+      stdio: "inherit",
+      shell: true,
+    });
+    process.on("close", (code) => {
+      console.log(
+        `tmux session "${sessionName}" closed with exit code ${code}`
+      );
+    });
+    process.on("error", (err) => {
+      console.error(`Error running tmux: ${err.message}`);
+    });
+  } else {
+    for (const command of commands) {
+      commandParts = command.split(/\s+/g);
+      const process = spawn(commandParts[0], commandParts.slice(1), {
+        stdio: "inherit",
+        shell: true,
+      });
+      process.on("close", (code) => {
+        console.log(`Command "${command}" finished with exit code ${code}`);
+      });
+      process.on("error", (err) => {
+        console.error(`Error running command "${command}": ${err.message}`);
+      });
+    }
+  }
 };
 
 const commands = [];

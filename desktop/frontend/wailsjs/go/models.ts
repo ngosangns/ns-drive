@@ -10,9 +10,10 @@ export namespace main {
 	    production = 1,
 	}
 	export enum Command {
-	    stop_command = "stop_command",
 	    command_stoped = "command_stoped",
-	    error__ = "error__",
+	    command_output = "command_output",
+	    command_started = "command_started",
+	    error = "error",
 	}
 
 }

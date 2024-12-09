@@ -6,45 +6,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"sync"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
-
-type Environment int
-
-const (
-	Development Environment = iota
-	Production
-)
-
-func (e Environment) String() string {
-	return [...]string{"development", "production"}[e]
-}
-
-type Platform int
-
-const (
-	Windows Platform = iota
-	Darwin
-	Linux
-)
-
-func (p Platform) String() string {
-	return [...]string{"windows", "darwin", "linux"}[p]
-}
-
-type Command string
-
-const (
-	StopCommand   Command = "stop_command"
-	CommandStoped Command = "command_stoped"
-	ErrorPrefix   Command = "error__"
-)
-
-func (c Command) String() string {
-	return string(c)
-}
 
 func (a *App) GetPlatform() string {
 	env := runtime.Environment(a.ctx)
@@ -64,25 +31,6 @@ func (a *App) GetPATH() (string, error) {
 	return string(output), err
 }
 
-func (a *App) GetWorkingDir() (string, error) {
-	if a.GetCurrentEnvName() == Development.String() {
-		if wd, err := os.Getwd(); err == nil {
-			return filepath.Clean(wd + "/../"), nil
-		} else {
-			return "", err
-		}
-	}
-
-	if exePath, err := os.Executable(); err == nil {
-		if a.GetPlatform() == Windows.String() {
-			return filepath.Dir(exePath), nil
-		}
-		return filepath.Clean(filepath.Dir(exePath) + "/../../../"), nil
-	} else {
-		return "", err
-	}
-}
-
 func (a *App) LoadEnv() error {
 	if a.GetPlatform() == Darwin.String() {
 		if path, err := a.GetPATH(); err == nil {
@@ -96,19 +44,63 @@ func (a *App) LoadEnv() error {
 		}
 	}
 
-	if wd, err := a.GetWorkingDir(); err == nil {
-		return godotenv.Load(wd + "/.env")
-	} else {
+	wd, err := os.Getwd()
+	if err != nil {
 		return err
 	}
+
+	return godotenv.Load(wd + "/.env")
 }
 
 func (a *App) CdToNormalizeWorkingDir() error {
-	if wd, err := a.GetWorkingDir(); err == nil {
-		return os.Chdir(wd)
+	var wd string
+	var err error
+
+	if a.GetCurrentEnvName() == Development.String() {
+		wd, err = os.Getwd()
+		if err != nil {
+			return err
+		}
+
+		wd = filepath.Clean(wd + "/../")
 	} else {
-		return err
+		exePath, err := os.Executable()
+		if err != nil {
+			return err
+		}
+
+		if a.GetPlatform() == Windows.String() {
+			wd = filepath.Dir(exePath)
+		} else {
+			wd = filepath.Clean(filepath.Dir(exePath) + "/../../../")
+		}
 	}
+
+	return os.Chdir(wd)
+}
+
+var (
+	cmdStore      = make(map[int]*exec.Cmd)
+	cmdStoreMutex sync.RWMutex
+)
+
+func AddCmd(pid int, cmd *exec.Cmd) {
+	cmdStoreMutex.Lock()
+	defer cmdStoreMutex.Unlock()
+	cmdStore[pid] = cmd
+}
+
+func GetCmd(pid int) (*exec.Cmd, bool) {
+	cmdStoreMutex.RLock()
+	defer cmdStoreMutex.RUnlock()
+	cmd, exists := cmdStore[pid]
+	return cmd, exists
+}
+
+func RemoveCmd(pid int) {
+	cmdStoreMutex.Lock()
+	defer cmdStoreMutex.Unlock()
+	delete(cmdStore, pid)
 }
 
 // runRcloneSync runs the rclone sync command with the provided arguments
@@ -116,38 +108,50 @@ func (a *App) RunRcloneSync(args ...string) error {
 	cmdArr := append([]string{"task"}, args...)
 
 	cmd := exec.Command(cmdArr[0], cmdArr[1:]...)
-	cmd.Stdout = Om
-	cmd.Stderr = Om
 
+	stdout := RcloneStdout{c: Oc, pid: 0}
+	cmd.Stdout = stdout
+	cmd.Stderr = stdout
+
+	e := cmd.Start()
+	if e != nil {
+		a.LogError(e)
+		j, _ := NewCommandErrorDTO(0, e).ToJSON()
+		Oc <- j
+		return e
+	}
+
+	// pid := cmd.Process.Pid
+	pid := a.GetRandomPid()
+	AddCmd(pid, cmd)
+
+	j, _ := NewCommandStartedDTO(pid, cmdArr[1]).ToJSON()
+	Oc <- j
+
+	// Wait for the command to finish
 	go func() {
-		for data := range Im {
-			if string(data) == StopCommand.String() {
-				if err := cmd.Process.Kill(); err != nil {
-					Om <- []byte(ErrorPrefix.String() + err.Error())
-					a.LogError(err)
-				}
-
-				Om <- []byte(CommandStoped)
-				break
-			} else if string(data) == CommandStoped.String() {
-				break
-			}
+		err := cmd.Wait()
+		if err != nil {
+			a.LogError(err)
+			j, _ := NewCommandErrorDTO(pid, err).ToJSON()
+			Oc <- j
+		} else {
+			j, _ := NewCommandStoppedDTO(pid).ToJSON()
+			Oc <- j
 		}
+		RemoveCmd(pid)
 	}()
 
-	err := cmd.Run()
-	if err != nil {
-		Om <- []byte(ErrorPrefix.String() + err.Error())
-		a.LogError(err)
-	}
-	Om <- []byte(CommandStoped)
-	Im <- []byte(CommandStoped)
-	return err
+	return e
+}
+
+func (a *App) GetRandomPid() int {
+	return os.Getpid() + int(time.Now().UnixNano()%1000)
 }
 
 // logError logs the error to a file on the desktop, including stack trace and error line number
 func (a *App) LogError(inErr error) {
-	if wd, err := a.GetWorkingDir(); err == nil {
+	if wd, err := os.Getwd(); err == nil {
 		if f, fileErr := os.OpenFile(filepath.Join(wd, "desktop.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); fileErr == nil {
 			defer f.Close()
 			logger := log.New(f, "", log.LstdFlags)

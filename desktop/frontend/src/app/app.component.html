@@ -1,0 +1,23 @@
+<div id="app">
+  <div class="panel-wrapper">
+    <img class="logo" src="assets/appicon.png" alt="logo" />
+    <h1>ngosangns-drive</h1>
+    <div class="menu">
+      <button
+        (click)="!isPulling ? pullClick() : stopCommand()"
+        [style.backgroundColor]="isPulling ? 'red' : 'white'"
+      >
+        {{ isPulling ? "Stop" : "Pull" }}
+      </button>
+      <button
+        (click)="!isPushing ? pushClick() : stopCommand()"
+        [style.backgroundColor]="isPushing ? 'red' : 'white'"
+      >
+        {{ isPushing ? "Stop" : "Push" }}
+      </button>
+    </div>
+  </div>
+  <div class="command">
+    <pre *ngIf="data.length > 0">{{ data.join("\n") }}</pre>
+  </div>
+</div>
