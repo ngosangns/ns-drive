@@ -38,7 +38,7 @@ tasks:
       - node uninstall-service.js
 
   # Desktop
-  build-app:
+  build-app-mac:
     cmds:
       - wails build -v 2
       # - codesign --sign - --force --deep build/bin/desktop.app
@@ -47,4 +47,10 @@ tasks:
       - rm -rf ../desktop.app
       - mv build/bin/desktop.app ../desktop.app
       # - open ../desktop.app
+    dir: desktop
+  build-app-win:
+    cmds:
+      - wails build -v 2 # -windowsconsole to show the console for debugging
+      - powershell.exe -Command "Move-Item -Path './build/bin/desktop.exe' -Destination './../desktop.exe' -Force"
+      # - ./desktop.exe # Run the app from console can see the error logs if passing -windowsconsole
     dir: desktop

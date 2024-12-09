@@ -74,6 +74,9 @@ func (a *App) GetWorkingDir() (string, error) {
 	}
 
 	if exePath, err := os.Executable(); err == nil {
+		if a.GetPlatform() == Windows.String() {
+			return filepath.Dir(exePath), nil
+		}
 		return filepath.Clean(filepath.Dir(exePath) + "/../../../"), nil
 	} else {
 		return "", err
