@@ -106,7 +106,6 @@ func RemoveCmd(pid int) {
 // runRcloneSync runs the rclone sync command with the provided arguments
 func (a *App) RunRcloneSync(args ...string) error {
 	cmdArr := append([]string{"task"}, args...)
-
 	cmd := exec.Command(cmdArr[0], cmdArr[1:]...)
 
 	stdout := RcloneStdout{c: Oc, pid: 0}

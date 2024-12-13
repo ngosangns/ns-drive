@@ -38,7 +38,12 @@ tasks:
       - node uninstall-service.js
 
   # Desktop
+  dev-app:
+    cmds:
+      - wails dev
+    dir: desktop
   build-app-mac:
+    platforms: [darwin]
     cmds:
       - wails build -v 2
       # - codesign --sign - --force --deep build/bin/desktop.app
@@ -49,8 +54,8 @@ tasks:
       # - open ../desktop.app
     dir: desktop
   build-app-win:
+    platforms: [windows]
     cmds:
       - wails build -v 2 # -windowsconsole to show the console for debugging
-      - powershell.exe -Command "Move-Item -Path './build/bin/desktop.exe' -Destination './../desktop.exe' -Force"
-      # - ./desktop.exe # Run the app from console can see the error logs if passing -windowsconsole
+      # - bash -c "sudo mv ./build/bin/desktop.exe ../desktop.exe -f"
     dir: desktop

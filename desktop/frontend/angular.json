@@ -6,7 +6,7 @@
     "analytics": false
   },
   "projects": {
-    "desktop2": {
+    "desktop": {
       "projectType": "application",
       "root": "",
       "sourceRoot": "src",
@@ -15,7 +15,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/desktop2",
+            "outputPath": "dist",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": ["zone.js"],
@@ -53,10 +53,10 @@
           },
           "configurations": {
             "production": {
-              "buildTarget": "desktop2:build:production"
+              "buildTarget": "desktop:build:production"
             },
             "development": {
-              "buildTarget": "desktop2:build:development"
+              "buildTarget": "desktop:build:development"
             }
           },
           "defaultConfiguration": "development"
