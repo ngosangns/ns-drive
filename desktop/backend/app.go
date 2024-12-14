@@ -1,4 +1,4 @@
-package main
+package backend
 
 import (
 	"context"
@@ -20,14 +20,10 @@ func NewApp() *App {
 // so we can call the runtime methods
 var Oc chan []byte
 
-func (a *App) startup(ctx context.Context) {
+func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 
 	if err := a.CdToNormalizeWorkingDir(); err != nil {
-		a.LogErrorAndExit(err)
-	}
-
-	if err := a.LoadEnv(); err != nil {
 		a.LogErrorAndExit(err)
 	}
 

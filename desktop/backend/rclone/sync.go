@@ -1,7 +1,6 @@
-package main
+package rclone
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,13 +9,17 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"log"
 
+	be "desktop/backend"
+
+	env "github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
+
+	// import fs drivers
 	_ "github.com/rclone/rclone/backend/drive"
 	_ "github.com/rclone/rclone/backend/local"
 	"github.com/rclone/rclone/cmd"
@@ -25,7 +28,6 @@ import (
 	"github.com/rclone/rclone/fs/cache"
 	"github.com/rclone/rclone/fs/filter"
 	"github.com/rclone/rclone/fs/fserrors"
-	"github.com/rclone/rclone/fs/operations"
 	"github.com/rclone/rclone/fs/rc"
 	"github.com/rclone/rclone/fs/rc/rcserver"
 	fssync "github.com/rclone/rclone/fs/sync"
@@ -36,115 +38,6 @@ import (
 	"github.com/rclone/rclone/fs/config/configfile"
 	fslog "github.com/rclone/rclone/fs/log"
 )
-
-const (
-	// interval between progress prints
-	defaultProgressInterval = 500 * time.Millisecond
-	// time format for logging
-	logTimeFormat = "2006/01/02 15:04:05"
-)
-
-var (
-	statsInterval = time.Minute * 1
-)
-
-// startProgress starts the progress bar printing
-//
-// It returns a func which should be called to stop the stats.
-func startProgress() func() {
-	stopStats := make(chan struct{})
-	oldLogOutput := fs.LogOutput
-	oldSyncPrint := operations.SyncPrintf
-
-	if !fslog.Redirected() {
-		// Intercept the log calls if not logging to file or syslog
-		fs.LogOutput = func(level fs.LogLevel, text string) {
-			printProgress(fmt.Sprintf("%s %-6s: %s", time.Now().Format(logTimeFormat), level, text))
-
-		}
-	}
-
-	// Intercept output from functions such as HashLister to stdout
-	operations.SyncPrintf = func(format string, a ...interface{}) {
-		printProgress(fmt.Sprintf(format, a...))
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		progressInterval := defaultProgressInterval
-		if cmd.ShowStats() && statsInterval > 0 {
-			progressInterval = statsInterval
-		}
-		ticker := time.NewTicker(progressInterval)
-		for {
-			select {
-			case <-ticker.C:
-				printProgress("")
-			case <-stopStats:
-				ticker.Stop()
-				printProgress("")
-				fs.LogOutput = oldLogOutput
-				operations.SyncPrintf = oldSyncPrint
-				fmt.Println("")
-				return
-			}
-		}
-	}()
-	return func() {
-		close(stopStats)
-		wg.Wait()
-	}
-}
-
-// state for the progress printing
-var (
-	nlines = 0 // number of lines in the previous stats block
-)
-
-// printProgress prints the progress with an optional log
-func printProgress(logMessage string) {
-	operations.StdoutMutex.Lock()
-	defer operations.StdoutMutex.Unlock()
-
-	var buf bytes.Buffer
-	w, _ := terminal.GetSize()
-	stats := strings.TrimSpace(accounting.GlobalStats().String())
-	logMessage = strings.TrimSpace(logMessage)
-
-	out := func(s string) {
-		buf.WriteString(s)
-	}
-
-	if logMessage != "" {
-		out("\n")
-		out(terminal.MoveUp)
-	}
-	// Move to the start of the block we wrote erasing all the previous lines
-	for i := 0; i < nlines-1; i++ {
-		out(terminal.EraseLine)
-		out(terminal.MoveUp)
-	}
-	out(terminal.EraseLine)
-	out(terminal.MoveToStartOfLine)
-	if logMessage != "" {
-		out(terminal.EraseLine)
-		out(logMessage + "\n")
-	}
-	fixedLines := strings.Split(stats, "\n")
-	nlines = len(fixedLines)
-	for i, line := range fixedLines {
-		if len(line) > w {
-			line = line[:w]
-		}
-		out(line)
-		if i != nlines-1 {
-			out("\n")
-		}
-	}
-	terminal.Write(buf.Bytes())
-}
 
 func initConfig(ctx context.Context) context.Context {
 	// Set the global options from the flags
@@ -215,52 +108,54 @@ func initConfig(ctx context.Context) context.Context {
 	}
 	ctx = filter.ReplaceConfig(ctx, filterConfig)
 
-	// // Setup CPU profiling if desired
+	// Setup CPU profiling if desired
+	cpuProfile := ""
 	// cpuProfile := "Debugging"
-	// if cpuProfile != "" {
-	// 	fs.Infof(nil, "Creating CPU profile %q\n", cpuProfile)
-	// 	f, err := os.Create(cpuProfile)
-	// 	if err != nil {
-	// 		err = fs.CountError(err)
-	// 		fs.Fatal(nil, fmt.Sprint(err))
-	// 	}
-	// 	err = pprof.StartCPUProfile(f)
-	// 	if err != nil {
-	// 		err = fs.CountError(err)
-	// 		fs.Fatal(nil, fmt.Sprint(err))
-	// 	}
-	// 	atexit.Register(func() {
-	// 		pprof.StopCPUProfile()
-	// 		err := f.Close()
-	// 		if err != nil {
-	// 			err = fs.CountError(err)
-	// 			fs.Fatal(nil, fmt.Sprint(err))
-	// 		}
-	// 	})
-	// }
+	if cpuProfile != "" {
+		fs.Infof(nil, "Creating CPU profile %q\n", cpuProfile)
+		f, err := os.Create(cpuProfile)
+		if err != nil {
+			err = fs.CountError(err)
+			fs.Fatal(nil, fmt.Sprint(err))
+		}
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			err = fs.CountError(err)
+			fs.Fatal(nil, fmt.Sprint(err))
+		}
+		atexit.Register(func() {
+			pprof.StopCPUProfile()
+			err := f.Close()
+			if err != nil {
+				err = fs.CountError(err)
+				fs.Fatal(nil, fmt.Sprint(err))
+			}
+		})
+	}
 
-	// // Setup memory profiling if desired
+	// Setup memory profiling if desired
+	memProfile := ""
 	// memProfile := "Debugging"
-	// if memProfile != "" {
-	// 	atexit.Register(func() {
-	// 		fs.Infof(nil, "Saving Memory profile %q\n", memProfile)
-	// 		f, err := os.Create(memProfile)
-	// 		if err != nil {
-	// 			err = fs.CountError(err)
-	// 			fs.Fatal(nil, fmt.Sprint(err))
-	// 		}
-	// 		err = pprof.WriteHeapProfile(f)
-	// 		if err != nil {
-	// 			err = fs.CountError(err)
-	// 			fs.Fatal(nil, fmt.Sprint(err))
-	// 		}
-	// 		err = f.Close()
-	// 		if err != nil {
-	// 			err = fs.CountError(err)
-	// 			fs.Fatal(nil, fmt.Sprint(err))
-	// 		}
-	// 	})
-	// }
+	if memProfile != "" {
+		atexit.Register(func() {
+			fs.Infof(nil, "Saving Memory profile %q\n", memProfile)
+			f, err := os.Create(memProfile)
+			if err != nil {
+				err = fs.CountError(err)
+				fs.Fatal(nil, fmt.Sprint(err))
+			}
+			err = pprof.WriteHeapProfile(f)
+			if err != nil {
+				err = fs.CountError(err)
+				fs.Fatal(nil, fmt.Sprint(err))
+			}
+			err = f.Close()
+			if err != nil {
+				err = fs.CountError(err)
+				fs.Fatal(nil, fmt.Sprint(err))
+			}
+		})
+	}
 
 	return ctx
 }
@@ -273,7 +168,7 @@ func Run(ctx context.Context, Retry bool, showStats bool, cb func() error) {
 		showStats = true
 	}
 	if ci.Progress {
-		stopStats = startProgress()
+		stopStats = StartProgress()
 	} else if showStats {
 		stopStats = cmd.StartStats()
 	}
@@ -407,59 +302,53 @@ func resolveExitCode(err error) {
 	}
 }
 
-func main() {
-	// Change the working directory to the root of the project
-	os.Chdir("../../")
+var initial sync.Once
+var config Config
 
-	// Load the .env file
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
-	}
-	clientFromPath := os.Getenv("CLIENT_FROM_PATH")
-	clientToPath := os.Getenv("CLIENT_PATH")
-	clientFilterPath := os.Getenv("CLIENT_FILTER_PATH")
-	clientLimitBandwidth := os.Getenv("CLIENT_LIMIT_BANDWIDTH")
-	clientParallel := os.Getenv("CLIENT_PARALLEL")
+func Initial() {
+	initial.Do(func() {
+		// Load the .env file
+		err := godotenv.Load(".env")
+		if err != nil {
+			log.Fatalf("Error loading .env file: %v", err)
+		}
 
+		// Parse environment variables into the struct
+		if err := env.Parse(&config); err != nil {
+			log.Fatalf("Failed to parse env variables: %v", err)
+		}
+	})
+}
+
+func Sync() {
 	// Initialize the config
 	ctx := initConfig(context.Background())
 	fsConfig := fs.GetConfig(ctx)
 
+	var err error
+
+	srcFs, err := fs.NewFs(ctx, config.FromFs)
+	be.HandleError(err, "Failed to initialize source filesystem", true, nil, nil)
+
+	dstFs, err := fs.NewFs(ctx, config.ToFs)
+	be.HandleError(err, "Failed to initialize destination filesystem", true, nil, nil)
+
 	// Set up filter rules
-	if clientFilterPath != "" {
+	if config.FilterFile != "" {
 		filterConfig := filter.GetConfig(ctx)
-		filterConfig.AddFile(clientFilterPath)
-		ctx = filter.ReplaceConfig(ctx, filterConfig)
-	}
-
-	// Configure the FS (FileSystem) for source and destination
-	srcFs, err := fs.NewFs(ctx, clientFromPath)
-	if err != nil {
-		log.Fatalf("Failed to initialize source filesystem: %v", err)
-	}
-
-	dstFs, err := fs.NewFs(ctx, clientToPath)
-	if err != nil {
-		log.Fatalf("Failed to initialize destination filesystem: %v", err)
+		err = filterConfig.AddFile(config.FilterFile)
+		be.HandleError(err, "Add filter file error", false, nil, func() {
+			ctx = filter.ReplaceConfig(ctx, filterConfig)
+		})
 	}
 
 	// Set bandwidth limit
-	if clientLimitBandwidth != "" {
-		err = fsConfig.BwLimit.Set(clientLimitBandwidth)
-		if err != nil {
-			log.Fatalf("Failed to set bandwidth limit: %v", err)
-		}
+	if config.Bandwidth != "" {
+		be.HandleError(fsConfig.BwLimit.Set(config.Bandwidth), "Failed to set bandwidth limit", false, nil, nil)
 	}
 
 	// Set parallel transfers
-	if clientParallel != "" {
-		parallel, err := strconv.Atoi(clientParallel)
-		if err != nil {
-			log.Fatalf("Failed to parse CLIENT_PARALLEL: %v", err)
-		}
-		fsConfig.Transfers = parallel
-	}
+	fsConfig.Transfers = config.Parallel
 
 	fsConfig.Progress = true
 	fsConfig.ProgressTerminalTitle = true
@@ -467,9 +356,10 @@ func main() {
 
 	Run(ctx, true, false, func() error {
 		// Perform the sync
-		err := fssync.Sync(ctx, dstFs, srcFs, false)
-		if err != nil {
+		err := be.HandleError(fssync.Sync(ctx, dstFs, srcFs, false), "Sync failed", true, func(err error) {
 			log.Fatalf("Sync failed: %v", err)
+		}, nil)
+		if err != nil {
 			return err
 		}
 

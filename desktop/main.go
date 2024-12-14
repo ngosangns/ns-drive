@@ -1,6 +1,7 @@
 package main
 
 import (
+	be "desktop/backend"
 	"embed"
 
 	"github.com/wailsapp/wails/v2"
@@ -14,7 +15,7 @@ var assets embed.FS
 func main() {
 
 	// Create an instance of the app structure
-	app := NewApp()
+	app := be.NewApp()
 
 	// Create application with options
 	err := wails.Run(&options.App{
@@ -25,37 +26,37 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 128, G: 128, B: 128, A: 1}, // Gray color
-		OnStartup:        app.startup,
+		OnStartup:        app.Startup,
 		Bind: []interface{}{
 			app,
 		},
 		EnumBind: []interface{}{
 			[]struct {
-				Value  Platform
+				Value  be.Platform
 				TSName string
 			}{
-				{Windows, Windows.String()},
-				{Darwin, Darwin.String()},
-				{Linux, Linux.String()},
+				{be.Windows, be.Windows.String()},
+				{be.Darwin, be.Darwin.String()},
+				{be.Linux, be.Linux.String()},
 			},
 			[]struct {
-				Value  Environment
+				Value  be.Environment
 				TSName string
 			}{
-				{Development, Development.String()},
-				{Production, Production.String()},
+				{be.Development, be.Development.String()},
+				{be.Production, be.Production.String()},
 			},
 			[]struct {
-				Value  Command
+				Value  be.Command
 				TSName string
 			}{
-				{CommandStoped, CommandStoped.String()},
-				{CommandOutput, CommandOutput.String()},
-				{CommandStarted, CommandStarted.String()},
-				{Error, Error.String()},
+				{be.CommandStoped, be.CommandStoped.String()},
+				{be.CommandOutput, be.CommandOutput.String()},
+				{be.CommandStarted, be.CommandStarted.String()},
+				{be.Error, be.Error.String()},
 			},
-			[]CommandDTO{
-				NewCommandStoppedDTO(0),
+			[]be.CommandDTO{
+				be.NewCommandStoppedDTO(0),
 			},
 		},
 	})

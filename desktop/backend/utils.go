@@ -1,4 +1,4 @@
-package main
+package backend
 
 import (
 	"log"
@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -31,27 +30,6 @@ func (a *App) GetPATH() (string, error) {
 	return string(output), err
 }
 
-func (a *App) LoadEnv() error {
-	if a.GetPlatform() == Darwin.String() {
-		if path, err := a.GetPATH(); err == nil {
-			if err := os.Setenv("PATH", path); err != nil {
-				a.LogError(err)
-				return err
-			}
-		} else {
-			a.LogError(err)
-			return err
-		}
-	}
-
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	return godotenv.Load(wd + "/.env")
-}
-
 func (a *App) CdToNormalizeWorkingDir() error {
 	var wd string
 	var err error
@@ -61,18 +39,15 @@ func (a *App) CdToNormalizeWorkingDir() error {
 		if err != nil {
 			return err
 		}
-
 		wd = filepath.Clean(wd + "/../")
 	} else {
 		exePath, err := os.Executable()
 		if err != nil {
 			return err
 		}
-
-		if a.GetPlatform() == Windows.String() {
-			wd = filepath.Dir(exePath)
-		} else {
-			wd = filepath.Clean(filepath.Dir(exePath) + "/../../../")
+		wd = filepath.Dir(exePath)
+		if a.GetPlatform() != Windows.String() {
+			wd = filepath.Clean(wd + "/../../../")
 		}
 	}
 
@@ -166,4 +141,23 @@ func (a *App) LogError(inErr error) {
 func (a *App) LogErrorAndExit(err error) {
 	a.LogError(err)
 	log.Fatal(err)
+}
+
+func HandleError(err error, context string, fatal bool, onError func(error), onClear func()) error {
+	if err != nil {
+		if onError != nil {
+			onError(err)
+		}
+		if fatal {
+			log.Fatal(err)
+		} else {
+			log.Printf("Context: %s, Error: %s\n", context, err.Error())
+		}
+	} else {
+		if onClear != nil {
+			onClear()
+		}
+	}
+
+	return err
 }
