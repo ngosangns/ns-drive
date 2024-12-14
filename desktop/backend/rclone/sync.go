@@ -167,7 +167,6 @@ func Sync(ctx context.Context, config *beConfig.Config, task string, outLog chan
 	var err error
 
 	switch task {
-	case "bi":
 	case "pull":
 	case "push":
 		config.FromFs, config.ToFs = config.ToFs, config.FromFs
