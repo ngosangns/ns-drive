@@ -1,4 +1,4 @@
-export namespace main {
+export namespace constants {
 	
 	export enum Platform {
 	    windows = 0,
@@ -9,6 +9,11 @@ export namespace main {
 	    development = 0,
 	    production = 1,
 	}
+
+}
+
+export namespace dto {
+	
 	export enum Command {
 	    command_stoped = "command_stoped",
 	    command_output = "command_output",

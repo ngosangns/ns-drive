@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { ChangeDetectorRef, Component } from "@angular/core";
-import { Pull, Push, StopCommand } from "../../wailsjs/go/main/App.js";
-import { main } from "../../wailsjs/go/models.js";
+import { Pull, Push, StopCommand } from "../../wailsjs/go/backend/App.js";
+import { dto } from "../../wailsjs/go/models.js";
 import { EventsOn } from "../../wailsjs/runtime";
 
 interface CommandDTO {
@@ -19,7 +19,7 @@ interface CommandDTO {
   styleUrl: "./app.component.css",
 })
 export class AppComponent {
-  currentPid: number = 0;
+  currentId: number = 0;
   data: string[] = [];
   isPulling: boolean = false;
   isPushing: boolean = false;
@@ -31,33 +31,37 @@ export class AppComponent {
       data = <CommandDTO>JSON.parse(data);
 
       switch (data.command) {
-        case main.Command.command_started:
+        case dto.Command.command_started:
           this;
-          this.addToData("Command started...");
+          this.replaceData("Command started...");
           break;
-        case main.Command.command_stoped:
+        case dto.Command.command_stoped:
           this.onCommandStopped();
           break;
-        case main.Command.command_output:
-          this.addToData(data.error);
+        case dto.Command.command_output:
+          this.replaceData(data.error);
           break;
-        case main.Command.error:
-          this.addToData(data);
+        case dto.Command.error:
+          this.addData(data);
           break;
       }
     });
   }
 
-  addToData(str: string) {
+  replaceData(str: string) {
     this.data = [str];
+    this.cdr.detectChanges();
+  }
+
+  addData(str: string) {
+    this.data.push(str);
     this.cdr.detectChanges();
   }
 
   onCommandStopped() {
     this.isPulling = false;
     this.isPushing = false;
-    this.currentPid = 0;
-    this.addToData("Done!");
+    this.currentId = 0;
     this.cdr.detectChanges();
   }
 
@@ -66,23 +70,27 @@ export class AppComponent {
   async pullClick() {
     if (this.isPulling) return;
 
-    this.data = ["Pulling..."];
-    await Pull();
-    this.isPulling = true;
-    this.cdr.detectChanges();
+    this.replaceData("Pulling...");
+    this.currentId = await Pull();
+    if (this.currentId) {
+      this.isPulling = true;
+      this.cdr.detectChanges();
+    }
   }
 
   async pushClick() {
     if (this.isPushing) return;
 
-    this.data = ["Pushing..."];
-    await Push();
-    this.isPushing = true;
-    this.cdr.detectChanges();
+    this.replaceData("Pushing...");
+    this.currentId = await Push();
+    if (this.currentId) {
+      this.isPushing = true;
+      this.cdr.detectChanges();
+    }
   }
 
   stopCommand() {
     if (!this.isPulling && !this.isPushing) return;
-    StopCommand(this.currentPid);
+    StopCommand(this.currentId);
   }
 }

@@ -78,6 +78,13 @@ func formatToProgress(logMessage string) string {
 //
 // It returns a func which should be called to stop the stats.
 func startProgress(outLog chan string) func() {
+	isOutLogClosed := false
+	outLogClosedRecover := func() {
+		if r := recover(); r != nil {
+			isOutLogClosed = true
+		}
+	}
+
 	stopStats := make(chan struct{})
 	oldLogOutput := fs.LogOutput
 	oldSyncPrint := operations.SyncPrintf
@@ -85,18 +92,25 @@ func startProgress(outLog chan string) func() {
 	if !fslog.Redirected() {
 		// Intercept the log calls if not logging to file or syslog
 		fs.LogOutput = func(level fs.LogLevel, text string) {
-			outLog <- formatToProgress(fmt.Sprintf("%s %-6s: %s", time.Now().Format(logTimeFormat), level, text))
+			defer outLogClosedRecover()
+			if !isOutLogClosed {
+				outLog <- formatToProgress(fmt.Sprintf("%s %-6s: %s", time.Now().Format(logTimeFormat), level, text))
+			}
 		}
 	}
 
 	// Intercept output from functions such as HashLister to stdout
 	operations.SyncPrintf = func(format string, a ...interface{}) {
-		outLog <- formatToProgress(fmt.Sprintf(format, a...))
+		defer outLogClosedRecover()
+		if !isOutLogClosed {
+			outLog <- formatToProgress(fmt.Sprintf(format, a...))
+		}
 	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
+		defer outLogClosedRecover()
 		defer wg.Done()
 		progressInterval := defaultProgressInterval
 		if cmd.ShowStats() && statsInterval > 0 {
@@ -106,7 +120,9 @@ func startProgress(outLog chan string) func() {
 		for {
 			select {
 			case <-ticker.C:
-				outLog <- formatToProgress("")
+				if !isOutLogClosed {
+					outLog <- formatToProgress("")
+				}
 			case <-stopStats:
 				ticker.Stop()
 				fs.LogOutput = oldLogOutput
@@ -115,14 +131,25 @@ func startProgress(outLog chan string) func() {
 			}
 		}
 	}()
+
 	return func() {
+		defer outLogClosedRecover()
 		close(stopStats)
-		close(outLog)
+		if !isOutLogClosed {
+			close(outLog)
+		}
 		wg.Wait()
 	}
 }
 
 func startStats(outLog chan string) func() {
+	isOutLogClosed := false
+	outLogClosedRecover := func() {
+		if r := recover(); r != nil {
+			isOutLogClosed = true
+		}
+	}
+
 	if statsInterval <= 0 {
 		return func() {}
 	}
@@ -130,12 +157,15 @@ func startStats(outLog chan string) func() {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
+		defer outLogClosedRecover()
 		defer wg.Done()
 		ticker := time.NewTicker(statsInterval)
 		for {
 			select {
 			case <-ticker.C:
-				outLog <- accounting.GlobalStats().String()
+				if !isOutLogClosed {
+					outLog <- accounting.GlobalStats().String()
+				}
 			case <-stopStats:
 				ticker.Stop()
 				return
@@ -143,8 +173,11 @@ func startStats(outLog chan string) func() {
 		}
 	}()
 	return func() {
+		defer outLogClosedRecover()
 		close(stopStats)
-		close(outLog)
+		if !isOutLogClosed {
+			close(outLog)
+		}
 		wg.Wait()
 	}
 }

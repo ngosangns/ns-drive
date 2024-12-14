@@ -2,7 +2,6 @@ package backend
 
 import (
 	"context"
-	"desktop/backend/rclone"
 	"desktop/backend/utils"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -35,6 +34,4 @@ func (a *App) Startup(ctx context.Context) {
 			runtime.EventsEmit(a.ctx, "tofe", string(data))
 		}
 	}()
-
-	rclone.Initial()
 }

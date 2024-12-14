@@ -17,7 +17,7 @@ func (c Command) String() string {
 
 type CommandDTO struct {
 	Command string  `json:"command"`
-	Pid     *int    `json:"pid,omitempty"`
+	Id      *int    `json:"pid,omitempty"`
 	Error   *string `json:"error,omitempty"`
 	Task    *string `json:"task"`
 }

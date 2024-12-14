@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"sync"
-	"time"
 
 	"desktop/backend/constants"
 
@@ -58,31 +57,27 @@ func CdToNormalizeWorkingDir(ctx context.Context) error {
 }
 
 var (
-	cmdStore      = make(map[int]*exec.Cmd)
+	cmdStore      = make(map[int]func())
 	cmdStoreMutex sync.RWMutex
 )
 
-func AddCmd(pid int, cmd *exec.Cmd) {
+func AddCmd(pid int, cancel func()) {
 	cmdStoreMutex.Lock()
 	defer cmdStoreMutex.Unlock()
-	cmdStore[pid] = cmd
+	cmdStore[pid] = cancel
 }
 
-func GetCmd(pid int) (*exec.Cmd, bool) {
+func GetCmd(pid int) (func(), bool) {
 	cmdStoreMutex.RLock()
 	defer cmdStoreMutex.RUnlock()
-	cmd, exists := cmdStore[pid]
-	return cmd, exists
+	cancel, exists := cmdStore[pid]
+	return cancel, exists
 }
 
 func RemoveCmd(pid int) {
 	cmdStoreMutex.Lock()
 	defer cmdStoreMutex.Unlock()
 	delete(cmdStore, pid)
-}
-
-func GetRandomPid() int {
-	return os.Getpid() + int(time.Now().UnixNano()%1000)
 }
 
 // logError logs the error to a file on the desktop, including stack trace and error line number
