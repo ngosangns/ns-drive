@@ -57,5 +57,5 @@ tasks:
     platforms: [windows]
     cmds:
       - wails build -v 2 # -windowsconsole to show the console for debugging
-      # - bash -c "sudo mv ./build/bin/desktop.exe ../desktop.exe -f"
+      - powershell.exe "Move-Item -Path ./build/bin/desktop.exe -Destination ../desktop.exe -Force"
     dir: desktop
