@@ -1,4 +1,4 @@
-package backend
+package constants
 
 type Environment int
 

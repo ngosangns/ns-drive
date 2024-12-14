@@ -1,4 +1,4 @@
-package backend
+package dto
 
 import "encoding/json"
 
@@ -28,21 +28,4 @@ func (c CommandDTO) ToJSON() ([]byte, error) {
 		return []byte{}, err
 	}
 	return jsonData, nil
-}
-
-func NewCommandStoppedDTO(pid int) CommandDTO {
-	return CommandDTO{Command: CommandStoped.String(), Pid: &pid}
-}
-
-func NewCommandOutputDTO(pid int, output string) CommandDTO {
-	return CommandDTO{Command: CommandOutput.String(), Pid: &pid, Error: &output}
-}
-
-func NewCommandErrorDTO(pid int, err error) CommandDTO {
-	errorString := err.Error()
-	return CommandDTO{Command: Error.String(), Pid: &pid, Error: &errorString}
-}
-
-func NewCommandStartedDTO(pid int, task string) CommandDTO {
-	return CommandDTO{Command: CommandStarted.String(), Pid: &pid, Task: &task}
 }

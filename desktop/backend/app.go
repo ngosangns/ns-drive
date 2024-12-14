@@ -2,6 +2,8 @@ package backend
 
 import (
 	"context"
+	"desktop/backend/rclone"
+	"desktop/backend/utils"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -9,6 +11,7 @@ import (
 // App struct
 type App struct {
 	ctx context.Context
+	oc  chan []byte
 }
 
 // NewApp creates a new App application struct
@@ -18,20 +21,20 @@ func NewApp() *App {
 
 // startup is called when the app starts. The context is saved
 // so we can call the runtime methods
-var Oc chan []byte
-
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 
-	if err := a.CdToNormalizeWorkingDir(); err != nil {
-		a.LogErrorAndExit(err)
+	if err := utils.CdToNormalizeWorkingDir(a.ctx); err != nil {
+		utils.LogErrorAndExit(err)
 	}
 
 	// Send events to the frontend
-	Oc = make(chan []byte)
+	a.oc = make(chan []byte)
 	go func() {
-		for data := range Oc {
+		for data := range a.oc {
 			runtime.EventsEmit(a.ctx, "tofe", string(data))
 		}
 	}()
+
+	rclone.Initial()
 }

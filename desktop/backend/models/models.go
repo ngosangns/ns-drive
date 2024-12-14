@@ -1,16 +1,18 @@
-package backend
+package models
+
+import "desktop/backend/utils"
 
 type RcloneStdout struct {
-	pid int
-	c   chan []byte
+	Pid int
+	C   chan []byte
 }
 
 // Support command output
 func (r RcloneStdout) Write(p []byte) (n int, err error) {
-	j, e := NewCommandOutputDTO(r.pid, string(p)).ToJSON()
+	j, e := utils.NewCommandOutputDTO(r.Pid, string(p)).ToJSON()
 	if e != nil {
 		return 0, e
 	}
-	r.c <- j
+	r.C <- j
 	return len(p), nil
 }

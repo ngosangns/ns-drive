@@ -2,6 +2,8 @@ package main
 
 import (
 	be "desktop/backend"
+	"desktop/backend/constants"
+	"desktop/backend/dto"
 	"embed"
 
 	"github.com/wailsapp/wails/v2"
@@ -32,31 +34,28 @@ func main() {
 		},
 		EnumBind: []interface{}{
 			[]struct {
-				Value  be.Platform
+				Value  constants.Platform
 				TSName string
 			}{
-				{be.Windows, be.Windows.String()},
-				{be.Darwin, be.Darwin.String()},
-				{be.Linux, be.Linux.String()},
+				{constants.Windows, constants.Windows.String()},
+				{constants.Darwin, constants.Darwin.String()},
+				{constants.Linux, constants.Linux.String()},
 			},
 			[]struct {
-				Value  be.Environment
+				Value  constants.Environment
 				TSName string
 			}{
-				{be.Development, be.Development.String()},
-				{be.Production, be.Production.String()},
+				{constants.Development, constants.Development.String()},
+				{constants.Production, constants.Production.String()},
 			},
 			[]struct {
-				Value  be.Command
+				Value  dto.Command
 				TSName string
 			}{
-				{be.CommandStoped, be.CommandStoped.String()},
-				{be.CommandOutput, be.CommandOutput.String()},
-				{be.CommandStarted, be.CommandStarted.String()},
-				{be.Error, be.Error.String()},
-			},
-			[]be.CommandDTO{
-				be.NewCommandStoppedDTO(0),
+				{dto.CommandStoped, dto.CommandStoped.String()},
+				{dto.CommandOutput, dto.CommandOutput.String()},
+				{dto.CommandStarted, dto.CommandStarted.String()},
+				{dto.Error, dto.Error.String()},
 			},
 		},
 	})
