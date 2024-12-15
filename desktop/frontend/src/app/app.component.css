@@ -30,6 +30,7 @@
   margin-top: 3rem;
   width: 100%;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   gap: 1rem;
 }
@@ -44,7 +45,8 @@
 .command {
   display: flex;
   justify-content: start;
-  width: min(100%, 37.5rem);
+  min-width: 100%;
+  /* width: min(100%, 37.5rem); */
   border: thin solid white;
   margin: 3rem auto;
   padding: 1rem;

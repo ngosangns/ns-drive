@@ -1,6 +1,6 @@
 import { CommonModule } from "@angular/common";
 import { ChangeDetectorRef, Component } from "@angular/core";
-import { Pull, Push, StopCommand } from "../../wailsjs/go/backend/App.js";
+import { Sync, StopCommand } from "../../wailsjs/go/backend/App.js";
 import { dto } from "../../wailsjs/go/models.js";
 import { EventsOn } from "../../wailsjs/runtime";
 
@@ -11,6 +11,12 @@ interface CommandDTO {
   error: string | undefined;
 }
 
+enum Action {
+  Pull = "pull",
+  Push = "push",
+  Bi = "bi",
+}
+
 @Component({
   selector: "app-root",
   standalone: true,
@@ -19,10 +25,11 @@ interface CommandDTO {
   styleUrl: "./app.component.css",
 })
 export class AppComponent {
+  Action = Action;
   currentId: number = 0;
+  currentAction: Action | undefined;
+
   data: string[] = [];
-  isPulling: boolean = false;
-  isPushing: boolean = false;
 
   constructor(private cdr: ChangeDetectorRef) {}
 
@@ -59,8 +66,7 @@ export class AppComponent {
   }
 
   onCommandStopped() {
-    this.isPulling = false;
-    this.isPushing = false;
+    this.currentAction = undefined;
     this.currentId = 0;
     this.cdr.detectChanges();
   }
@@ -68,29 +74,40 @@ export class AppComponent {
   ngOnDestroy() {}
 
   async pullClick() {
-    if (this.isPulling) return;
+    if (this.currentAction === Action.Pull) return;
 
     this.replaceData("Pulling...");
-    this.currentId = await Pull();
+    this.currentId = await Sync("pull");
     if (this.currentId) {
-      this.isPulling = true;
+      this.currentAction = Action.Pull;
       this.cdr.detectChanges();
     }
   }
 
   async pushClick() {
-    if (this.isPushing) return;
+    if (this.currentAction === Action.Push) return;
 
     this.replaceData("Pushing...");
-    this.currentId = await Push();
+    this.currentId = await Sync("push");
     if (this.currentId) {
-      this.isPushing = true;
+      this.currentAction = Action.Push;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async biClick() {
+    if (this.currentAction === Action.Bi) return;
+
+    this.replaceData("Bi...");
+    this.currentId = await Sync("bi");
+    if (this.currentId) {
+      this.currentAction = Action.Bi;
       this.cdr.detectChanges();
     }
   }
 
   stopCommand() {
-    if (!this.isPulling && !this.isPushing) return;
+    if (!this.currentAction) return;
     StopCommand(this.currentId);
   }
 }

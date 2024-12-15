@@ -16,23 +16,24 @@ func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) er
 	// Initialize the config
 	fsConfig := fs.GetConfig(ctx)
 
-	opt := &bisync.Options{
-		Resync: true,
-		DryRun: true,
-	}
+	opt := &bisync.Options{}
+	opt.Resync = true
+	opt.Compare.DownloadHash = true
+	opt.CompareFlag = "size,modtime,checksum"
 
-	opt.CompareFlag = "modtime,size,checksum"
-
-	if err = opt.ConflictResolve.Set("prefer-newer"); err != nil {
+	if err = opt.ConflictResolve.Set(bisync.PreferNewer.String()); err != nil {
 		return err
 	}
 
-	if err = opt.ResyncMode.Set("prefer-newer"); err != nil {
+	if err = opt.ResyncMode.Set(bisync.PreferNewer.String()); err != nil {
 		return err
 	}
 
-	var checkSync = "true"
-	if err = opt.CheckSync.Set(checkSync); err != nil {
+	if err = opt.ConflictLoser.Set(bisync.ConflictLoserNumber.String()); err != nil {
+		return err
+	}
+
+	if err = opt.CheckSync.Set(bisync.CheckSyncTrue.String()); err != nil {
 		return err
 	}
 

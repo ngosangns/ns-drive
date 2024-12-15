@@ -9,16 +9,6 @@ import (
 	"time"
 )
 
-// Pull syncs from the client source path to the client destination path
-func (a *App) Pull() int {
-	return a.Sync("pull")
-}
-
-// Push syncs from the client destination path to the client source path
-func (a *App) Push() int {
-	return a.Sync("push")
-}
-
 func (a *App) Sync(task string) int {
 	id := time.Now().Nanosecond()
 
@@ -58,7 +48,15 @@ func (a *App) Sync(task string) int {
 	}()
 
 	go func() {
-		err := rclone.Sync(ctx, config, task, outLog)
+		switch task {
+		case "pull":
+			err = rclone.Sync(ctx, config, "pull", outLog)
+		case "push":
+			err = rclone.Sync(ctx, config, "push", outLog)
+		case "bi":
+			err = rclone.BiSync(ctx, config, outLog)
+		}
+
 		if utils.HandleError(err, "", nil, nil) != nil {
 			j, _ := utils.NewCommandErrorDTO(0, err).ToJSON()
 			a.oc <- j

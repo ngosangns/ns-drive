@@ -14,18 +14,6 @@ tasks:
   web:
     cmds:
       - rclone rcd --rc-web-gui
-  pull:
-    cmds:
-      - rclone sync $CLIENT_FROM_PATH $CLIENT_PATH -P --filter-from $CLIENT_FILTER_PATH --track-renames --bwlimit $CLIENT_LIMIT_BANDWIDTH --transfers $CLIENT_PARALLEL
-    silent: true
-  pull-full:
-    cmds:
-      - rclone sync $CLIENT_FROM_PATH $CLIENT_PATH -P --filter-from $CLIENT_FILTER_PATH --track-renames --bwlimit $CLIENT_LIMIT_BANDWIDTH --transfers $CLIENT_PARALLEL
-    silent: true
-  push:
-    cmds:
-      - rclone sync $CLIENT_PATH $CLIENT_FROM_PATH -P --filter-from $CLIENT_FILTER_PATH --transfers $CLIENT_PARALLEL
-    silent: true
 
   # Server
   backup:

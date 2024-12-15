@@ -4,23 +4,33 @@
     <h1>ngosangns-drive</h1>
     <div class="menu">
       <button
-        (click)="!isPulling ? pullClick() : stopCommand()"
-        [style.backgroundColor]="isPulling ? 'red' : 'white'"
+        (click)="currentAction !== Action.Pull ? pullClick() : stopCommand()"
+        [style.backgroundColor]="
+          currentAction === Action.Pull ? 'red' : 'white'
+        "
       >
-        {{ isPulling ? "Stop" : "Pull" }}
+        {{ currentAction === Action.Pull ? "Stop" : "Pull" }}
       </button>
       <button
-        (click)="!isPushing ? pushClick() : stopCommand()"
-        [style.backgroundColor]="isPushing ? 'red' : 'white'"
+        (click)="currentAction !== Action.Push ? pushClick() : stopCommand()"
+        [style.backgroundColor]="
+          currentAction === Action.Push ? 'red' : 'white'
+        "
       >
-        {{ isPushing ? "Stop" : "Push" }}
+        {{ currentAction === Action.Push ? "Stop" : "Push" }}
+      </button>
+      <button
+        (click)="currentAction !== Action.Bi ? biClick() : stopCommand()"
+        [style.backgroundColor]="currentAction === Action.Bi ? 'red' : 'white'"
+      >
+        {{ currentAction === Action.Bi ? "Stop" : "Sync" }}
       </button>
     </div>
   </div>
   <div
     class="command"
     [ngStyle]="{
-      'border-color': !isPulling && !isPushing && !currentId ? 'white' : 'green'
+      'border-color': !currentAction && !currentId ? 'white' : 'green'
     }"
   >
     <pre *ngIf="data.length > 0">{{ data.join("\n") }}</pre>
