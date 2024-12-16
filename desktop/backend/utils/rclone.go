@@ -2,7 +2,11 @@ package utils
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"hash"
+	"io"
 	"os"
 	"os/exec"
 	"runtime"
@@ -135,4 +139,27 @@ func RunRcloneWithRetryAndStats(ctx context.Context, retry bool, showStats bool,
 	}
 
 	return resolveError(ctx, cmdErr)
+}
+
+func CalculateFileHash(filePath string, hashFunc func() hash.Hash) (string, error) {
+	// Open the file
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	// Initialize the hash function
+	hasher := hashFunc()
+
+	// Copy the file content to the hasher
+	if _, err := io.Copy(hasher, file); err != nil {
+		return "", fmt.Errorf("failed to hash file: %w", err)
+	}
+
+	// Compute the final hash
+	hashSum := hasher.Sum(nil)
+
+	// Return the hash as a hexadecimal string
+	return hex.EncodeToString(hashSum), nil
 }

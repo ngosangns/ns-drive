@@ -2,8 +2,10 @@ package rclone
 
 import (
 	"context"
+	"crypto/sha256"
 	beConfig "desktop/backend/config"
 	"desktop/backend/utils"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,15 +42,52 @@ func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) er
 			return err
 		}
 	}
+	filterFileChecksum := "0"
+	if config.FilterFile != "" {
+		filterFileChecksum, err = utils.CalculateFileHash(filepath.Join(dir, config.FilterFile), sha256.New)
+		if utils.HandleError(err, "Failed to calculate hash of filter file", nil, nil) != nil {
+			return err
+		}
+	}
+	filterFileChecksumLinePrefix := config.FromFs + "|" + config.ToFs + "|"
+	filterFileChecksumLine := filterFileChecksumLinePrefix + filterFileChecksum
+	filterFileChecksumLineContained := false
 	resyncContent, err := os.ReadFile(path)
 	if utils.HandleError(err, "Failed to read .resync file", nil, nil) != nil {
 		return err
 	}
-	if !strings.Contains(string(resyncContent), "\n"+config.FromFs+"|"+config.ToFs+"\n") {
-		err = os.WriteFile(path, []byte("\n"+config.FromFs+"|"+config.ToFs+"\n"), 0644)
+	resyncContentStrArr := strings.Split(string(resyncContent), "\n")
+	for _, line := range resyncContentStrArr {
+		if line == filterFileChecksumLine {
+			filterFileChecksumLineContained = true
+			break
+		}
+	}
+	if !filterFileChecksumLineContained {
+		fmt.Println("resync")
+		// Update .resync file content
+		newResyncContentStrArr := []string{}
+		isAdded := false
+		for _, line := range resyncContentStrArr {
+			if line == "" {
+				continue
+			}
+			if strings.HasPrefix(line, filterFileChecksumLinePrefix) {
+				newResyncContentStrArr = append(newResyncContentStrArr, filterFileChecksumLine)
+				isAdded = true
+			} else {
+				newResyncContentStrArr = append(newResyncContentStrArr, line)
+			}
+		}
+		if !isAdded {
+			newResyncContentStrArr = append(newResyncContentStrArr, filterFileChecksumLine)
+		}
+		// Write to .resync file
+		err = os.WriteFile(path, []byte(strings.Join(newResyncContentStrArr, "\n")), 0644)
 		if utils.HandleError(err, "Failed to write to .resync file", nil, nil) != nil {
 			return err
 		}
+		// Set resync flag
 		opt.Resync = true
 		// if err = opt.ResyncMode.Set(bisync.PreferNewer.String()); err != nil {
 		// 	return err
