@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	beConfig "desktop/backend/config"
 	"desktop/backend/utils"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,7 +73,6 @@ func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) er
 		}
 	}
 	if !filterFileChecksumLineContained {
-		fmt.Println("resync")
 		// Update .resync file content
 		newResyncContentStrArr := []string{}
 		isAdded := false

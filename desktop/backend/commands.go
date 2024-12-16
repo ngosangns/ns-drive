@@ -23,8 +23,6 @@ func (a *App) Sync(task string) int {
 		return 0
 	}
 
-	fmt.Println("Config loaded!", config.DebugMode)
-
 	ctx, err = rclone.InitConfig(ctx, config.DebugMode)
 	if utils.HandleError(err, "", nil, nil) != nil {
 		j, _ := utils.NewCommandErrorDTO(id, err).ToJSON()
