@@ -24,6 +24,8 @@ func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) er
 	opt.Force = true
 	opt.Compare.DownloadHash = true
 	opt.CompareFlag = "size,modtime,checksum"
+	opt.Resilient = true
+	opt.Recover = true
 	// opt.DryRun = true
 
 	// if err = opt.ConflictResolve.Set(bisync.PreferNewer.String()); err != nil {
