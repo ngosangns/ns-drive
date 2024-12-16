@@ -36,6 +36,8 @@ func InitConfig(ctx context.Context) (context.Context, error) {
 	configfile.Install()
 
 	// Start accounting
+	stats := accounting.Stats(ctx)
+	stats.ResetCounters()
 	accounting.Start(ctx)
 
 	// Initialize the global config
@@ -43,11 +45,10 @@ func InitConfig(ctx context.Context) (context.Context, error) {
 	fsConfig.CheckSum = true
 	fsConfig.Progress = true
 	fsConfig.TrackRenames = true
-	fsConfig.UseServerModTime = true
 	fsConfig.Metadata = true
-	// fsConfig.DryRun = true
+	fsConfig.UseServerModTime = true
 
-	// fix-case
+	// Fix case
 	fsConfig.NoUnicodeNormalization = false
 	fsConfig.IgnoreCaseSync = true
 	fsConfig.FixCase = true

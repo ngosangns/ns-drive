@@ -4,6 +4,9 @@ import (
 	"context"
 	beConfig "desktop/backend/config"
 	"desktop/backend/utils"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/rclone/rclone/cmd/bisync"
 	"github.com/rclone/rclone/fs"
@@ -15,21 +18,44 @@ func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) er
 
 	// Initialize the config
 	fsConfig := fs.GetConfig(ctx)
-
 	opt := &bisync.Options{}
-	// opt.Resync = true
+	opt.Force = true
 	opt.Compare.DownloadHash = true
 	opt.CompareFlag = "size,modtime,checksum"
+	// opt.DryRun = true
 
-	if err = opt.ConflictResolve.Set(bisync.PreferNewer.String()); err != nil {
+	// if err = opt.ConflictResolve.Set(bisync.PreferNewer.String()); err != nil {
+	// 	return err
+	// }
+
+	// Handle resync
+	dir, err := os.Getwd()
+	if utils.HandleError(err, "Failed to get current working directory", nil, nil) != nil {
 		return err
 	}
-
-	if err = opt.ResyncMode.Set(bisync.PreferNewer.String()); err != nil {
+	path := filepath.Join(dir, ".resync")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		_, err = os.Create(path)
+		if utils.HandleError(err, "Failed to create .resync file", nil, nil) != nil {
+			return err
+		}
+	}
+	resyncContent, err := os.ReadFile(path)
+	if utils.HandleError(err, "Failed to read .resync file", nil, nil) != nil {
 		return err
 	}
+	if !strings.Contains(string(resyncContent), "\n"+config.FromFs+"|"+config.ToFs+"\n") {
+		err = os.WriteFile(path, []byte("\n"+config.FromFs+"|"+config.ToFs+"\n"), 0644)
+		if utils.HandleError(err, "Failed to write to .resync file", nil, nil) != nil {
+			return err
+		}
+		opt.Resync = true
+		// if err = opt.ResyncMode.Set(bisync.PreferNewer.String()); err != nil {
+		// 	return err
+		// }
+	}
 
-	if err = opt.ConflictLoser.Set(bisync.ConflictLoserNumber.String()); err != nil {
+	if err = opt.ConflictLoser.Set(bisync.ConflictLoserDelete.String()); err != nil {
 		return err
 	}
 
