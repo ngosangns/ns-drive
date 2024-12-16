@@ -17,7 +17,7 @@ func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) er
 	fsConfig := fs.GetConfig(ctx)
 
 	opt := &bisync.Options{}
-	opt.Resync = true
+	// opt.Resync = true
 	opt.Compare.DownloadHash = true
 	opt.CompareFlag = "size,modtime,checksum"
 

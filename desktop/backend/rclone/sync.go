@@ -11,6 +11,8 @@ import (
 	fssync "github.com/rclone/rclone/fs/sync"
 
 	// import fs drivers
+
+	_ "github.com/rclone/rclone/backend/cache"
 	_ "github.com/rclone/rclone/backend/drive"
 	_ "github.com/rclone/rclone/backend/local"
 )
@@ -19,6 +21,7 @@ func Sync(ctx context.Context, config *beConfig.Config, task string, outLog chan
 	// Initialize the config
 	fsConfig := fs.GetConfig(ctx)
 	fsConfig.Transfers = config.Parallel
+	fsConfig.Checkers = config.ParallelChecker
 
 	var err error
 
@@ -38,6 +41,15 @@ func Sync(ctx context.Context, config *beConfig.Config, task string, outLog chan
 		return err
 	}
 
+	// Set bandwidth limit
+	if config.Bandwidth != "" {
+		utils.HandleError(fsConfig.BwLimit.Set(config.Bandwidth), "Failed to set bandwidth limit", nil, nil)
+	}
+
+	if config.BackupDir != "" {
+		fsConfig.BackupDir = config.ToFs + config.BackupDir
+	}
+
 	// Set up filter rules
 	filterOpt := filter.GetConfig(ctx).Opt
 	filterOpt.FilterFrom = append([]string{config.FilterFile}, filterOpt.FilterFrom...)
@@ -45,11 +57,6 @@ func Sync(ctx context.Context, config *beConfig.Config, task string, outLog chan
 	utils.HandleError(err, "Invalid filters file", nil, func() {
 		ctx = filter.ReplaceConfig(ctx, newFilter)
 	})
-
-	// Set bandwidth limit
-	if config.Bandwidth != "" {
-		utils.HandleError(fsConfig.BwLimit.Set(config.Bandwidth), "Failed to set bandwidth limit", nil, nil)
-	}
 
 	fsConfig.Reload(ctx)
 

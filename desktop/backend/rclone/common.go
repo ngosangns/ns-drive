@@ -43,7 +43,9 @@ func InitConfig(ctx context.Context) (context.Context, error) {
 	fsConfig.CheckSum = true
 	fsConfig.Progress = true
 	fsConfig.TrackRenames = true
-	fsConfig.DeleteMode = fs.DeleteModeDuring
+	fsConfig.UseServerModTime = true
+	fsConfig.Metadata = true
+	// fsConfig.DryRun = true
 
 	// fix-case
 	fsConfig.NoUnicodeNormalization = false
