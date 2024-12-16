@@ -5,6 +5,7 @@ import (
 	"desktop/backend/rclone"
 	"desktop/backend/utils"
 	"errors"
+	"fmt"
 	"log"
 	"time"
 )
@@ -22,7 +23,9 @@ func (a *App) Sync(task string) int {
 		return 0
 	}
 
-	ctx, err = rclone.InitConfig(ctx)
+	fmt.Println("Config loaded!", config.DebugMode)
+
+	ctx, err = rclone.InitConfig(ctx, config.DebugMode)
 	if utils.HandleError(err, "", nil, nil) != nil {
 		j, _ := utils.NewCommandErrorDTO(id, err).ToJSON()
 		a.oc <- j
@@ -41,6 +44,10 @@ func (a *App) Sync(task string) int {
 			logEntry, ok := <-outLog
 			if !ok { // channel is closed
 				break
+			}
+			if config.DebugMode {
+				fmt.Println("--------------------")
+				fmt.Println(logEntry)
 			}
 			j, _ := utils.NewCommandOutputDTO(id, logEntry).ToJSON()
 			a.oc <- j

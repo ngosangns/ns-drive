@@ -9,4 +9,5 @@ type Config struct {
 	ParallelChecker int    `env:"PARALLEL_CHECKER" envDefault:"1"`
 	BackupDir       string `env:"BACKUP_DIR"`
 	CacheDir        string `env:"CACHE_DIR"`
+	DebugMode       bool   `env:"DEBUG_MODE" envDefault:"false"`
 }

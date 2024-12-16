@@ -6,7 +6,6 @@ toolchain go1.23.3
 
 require (
 	github.com/caarlos0/env/v11 v11.2.2
-	github.com/joho/godotenv v1.5.1
 	github.com/rclone/rclone v1.68.2
 	github.com/wailsapp/wails/v2 v2.9.2
 )

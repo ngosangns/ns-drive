@@ -8,7 +8,6 @@ import (
 	"runtime/pprof"
 
 	env "github.com/caarlos0/env/v11"
-	"github.com/joho/godotenv"
 	"github.com/rclone/rclone/fs"
 	"github.com/rclone/rclone/fs/accounting"
 	"github.com/rclone/rclone/fs/config/configfile"
@@ -20,7 +19,7 @@ import (
 	"github.com/rclone/rclone/lib/terminal"
 )
 
-func InitConfig(ctx context.Context) (context.Context, error) {
+func InitConfig(ctx context.Context, isDebugMode bool) (context.Context, error) {
 	// Set the global options from the flags
 	err := fs.GlobalOptionsInit()
 
@@ -78,12 +77,16 @@ func InitConfig(ctx context.Context) (context.Context, error) {
 		return nil, err
 	}
 
-	err = fsConfig.StatsLogLevel.Set(fs.LogLevelInfo.String()) // EMERGENCY ALERT CRITICAL ERROR WARNING NOTICE INFO DEBUG
+	// Log level
+	logLevel := fs.LogLevelInfo
+	if isDebugMode {
+		logLevel = fs.LogLevelDebug
+	}
+	err = fsConfig.StatsLogLevel.Set(logLevel.String()) // EMERGENCY ALERT CRITICAL ERROR WARNING NOTICE INFO DEBUG
 	if utils.HandleError(err, "Failed to set stats log level", nil, nil) != nil {
 		return nil, err
 	}
-
-	err = fsConfig.LogLevel.Set(fs.LogLevelInfo.String())
+	err = fsConfig.LogLevel.Set(logLevel.String())
 	if utils.HandleError(err, "Failed to set log level", nil, nil) != nil {
 		return nil, err
 	}
@@ -151,7 +154,12 @@ func InitConfig(ctx context.Context) (context.Context, error) {
 
 func LoadConfigFromEnv() (*beConfig.Config, error) {
 	// Load the .env file
-	err := godotenv.Load(".env")
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	err = utils.LoadEnvFile(wd + "/.env")
 	if err != nil {
 		return nil, err
 	}

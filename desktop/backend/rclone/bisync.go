@@ -22,15 +22,23 @@ func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) er
 	fsConfig := fs.GetConfig(ctx)
 	opt := &bisync.Options{}
 	opt.Force = true
-	opt.Compare.DownloadHash = true
 	opt.CompareFlag = "size,modtime,checksum"
-	opt.Resilient = true
 	opt.Recover = true
+	opt.CreateEmptySrcDirs = true
+	// opt.Resilient = true
 	// opt.DryRun = true
 
-	// if err = opt.ConflictResolve.Set(bisync.PreferNewer.String()); err != nil {
-	// 	return err
-	// }
+	if err = opt.ConflictResolve.Set(bisync.PreferNewer.String()); err != nil {
+		return err
+	}
+
+	if err = opt.ConflictLoser.Set(bisync.ConflictLoserDelete.String()); err != nil {
+		return err
+	}
+
+	if err = opt.CheckSync.Set(bisync.CheckSyncTrue.String()); err != nil {
+		return err
+	}
 
 	// Handle resync
 	dir, err := os.Getwd()
@@ -94,14 +102,6 @@ func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) er
 		// if err = opt.ResyncMode.Set(bisync.PreferNewer.String()); err != nil {
 		// 	return err
 		// }
-	}
-
-	if err = opt.ConflictLoser.Set(bisync.ConflictLoserDelete.String()); err != nil {
-		return err
-	}
-
-	if err = opt.CheckSync.Set(bisync.CheckSyncTrue.String()); err != nil {
-		return err
 	}
 
 	srcFs, err := fs.NewFs(ctx, config.FromFs)
