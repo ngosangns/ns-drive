@@ -46,10 +46,6 @@ func Sync(ctx context.Context, config *beConfig.Config, task string, outLog chan
 		utils.HandleError(fsConfig.BwLimit.Set(config.Bandwidth), "Failed to set bandwidth limit", nil, nil)
 	}
 
-	if config.BackupDir != "" {
-		fsConfig.BackupDir = config.ToFs + config.BackupDir
-	}
-
 	// Set up filter rules
 	filterOpt := filter.GetConfig(ctx).Opt
 	filterOpt.FilterFrom = append([]string{config.FilterFile}, filterOpt.FilterFrom...)
