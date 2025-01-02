@@ -5,3 +5,4 @@
 /desktop.log
 /.resync
 /.rclonefilter
+/**/package.json.md5
