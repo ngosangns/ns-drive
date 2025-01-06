@@ -1,38 +1,33 @@
-<div id="app">
-  <div class="panel-wrapper">
-    <img class="logo" src="assets/appicon.png" alt="logo" />
-    <h1>ngosangns-drive</h1>
-    <div class="menu">
+<div
+  class="fixed top-0 left-0 w-screen min-h-screen overflow-hidden grid bg-gray-900 gap-4 p-4"
+  style="grid-template-columns: max-content 1fr"
+>
+  <div class="p-[1rem]">
+    <div class="mt-[3rem] w-full flex justify-center flex-col gap-2">
       <button
+        class="text-black bg-white px-2 py-1"
+        [ngClass]="{ underline: currentAction === Action.Pull }"
         (click)="currentAction !== Action.Pull ? pullClick() : stopCommand()"
-        [style.backgroundColor]="
-          currentAction === Action.Pull ? 'red' : 'white'
-        "
       >
         {{ currentAction === Action.Pull ? "Stop" : "Pull" }}
       </button>
       <button
+        class="text-black bg-white px-2 py-1"
+        [ngClass]="{ underline: currentAction === Action.Push }"
         (click)="currentAction !== Action.Push ? pushClick() : stopCommand()"
-        [style.backgroundColor]="
-          currentAction === Action.Push ? 'red' : 'white'
-        "
       >
         {{ currentAction === Action.Push ? "Stop" : "Push" }}
       </button>
       <button
+        class="text-black bg-white px-2 py-1"
+        [ngClass]="{ underline: currentAction === Action.Bi }"
         (click)="currentAction !== Action.Bi ? biClick() : stopCommand()"
-        [style.backgroundColor]="currentAction === Action.Bi ? 'red' : 'white'"
       >
         {{ currentAction === Action.Bi ? "Stop" : "Sync" }}
       </button>
     </div>
   </div>
-  <div
-    class="command"
-    [ngStyle]="{
-      'border-color': !currentAction && !currentId ? 'white' : 'green'
-    }"
-  >
-    <pre *ngIf="data.length > 0">{{ data.join("\n") }}</pre>
-  </div>
+  <code class="min-w-full overflow-hidden text-white">
+    <pre class="text-md" *ngIf="data.length > 0">{{ data.join("\n") }}</pre>
+  </code>
 </div>
