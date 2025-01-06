@@ -54,6 +54,7 @@ func main() {
 				{dto.CommandStoped, dto.CommandStoped.String()},
 				{dto.CommandOutput, dto.CommandOutput.String()},
 				{dto.CommandStarted, dto.CommandStarted.String()},
+				{dto.WorkingDirUpdated, dto.WorkingDirUpdated.String()},
 				{dto.Error, dto.Error.String()},
 			},
 		},

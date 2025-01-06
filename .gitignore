@@ -6,3 +6,4 @@
 /.resync
 /.rclonefilter
 /**/package.json.md5
+/.profiles

@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime/debug"
 	"sync"
@@ -24,12 +23,6 @@ func GetCurrentEnvName(ctx context.Context) string {
 		return constants.Development.String()
 	}
 	return constants.Production.String()
-}
-
-func GetPATH() (string, error) {
-	cmd := exec.Command("/bin/zsh", "-l", "-c", "source ~/.zshrc && echo $PATH")
-	output, err := cmd.Output()
-	return string(output), err
 }
 
 func CdToNormalizeWorkingDir(ctx context.Context) error {

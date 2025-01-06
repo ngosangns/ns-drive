@@ -1,33 +1,53 @@
 <div
-  class="fixed top-0 left-0 w-screen min-h-screen overflow-hidden grid bg-gray-900 gap-4 p-4"
+  class="fixed top-0 left-0 w-screen min-h-screen overflow-hidden grid bg-gray-900"
   style="grid-template-columns: max-content 1fr"
 >
-  <div class="p-[1rem]">
-    <div class="mt-[3rem] w-full flex justify-center flex-col gap-2">
+  <div class="p-3">
+    <div class="w-full flex justify-center flex-col gap-2">
+      <h1 class="block text-center text-white font-bold text-3xl">Drive</h1>
+      <hr class="border-t border-solid border-white" />
       <button
-        class="text-black bg-white px-2 py-1"
-        [ngClass]="{ underline: currentAction === Action.Pull }"
-        (click)="currentAction !== Action.Pull ? pullClick() : stopCommand()"
+        class="text-black bg-white px-2 py-1 hover:bg-gray-400"
+        [ngClass]="{
+          underline: appService.currentAction$.value === Action.Pull
+        }"
+        (click)="
+          appService.currentAction$.value !== Action.Pull
+            ? pull()
+            : stopCommand()
+        "
       >
-        {{ currentAction === Action.Pull ? "Stop" : "Pull" }}
+        {{ appService.currentAction$.value === Action.Pull ? "Stop" : "Pull" }}
       </button>
       <button
-        class="text-black bg-white px-2 py-1"
-        [ngClass]="{ underline: currentAction === Action.Push }"
-        (click)="currentAction !== Action.Push ? pushClick() : stopCommand()"
+        class="text-black bg-white px-2 py-1 hover:bg-gray-400"
+        [ngClass]="{
+          underline: appService.currentAction$.value === Action.Push
+        }"
+        (click)="
+          appService.currentAction$.value !== Action.Push
+            ? push()
+            : stopCommand()
+        "
       >
-        {{ currentAction === Action.Push ? "Stop" : "Push" }}
+        {{ appService.currentAction$.value === Action.Push ? "Stop" : "Push" }}
       </button>
       <button
-        class="text-black bg-white px-2 py-1"
-        [ngClass]="{ underline: currentAction === Action.Bi }"
-        (click)="currentAction !== Action.Bi ? biClick() : stopCommand()"
+        class="text-black bg-white px-2 py-1 hover:bg-gray-400"
+        [ngClass]="{ underline: appService.currentAction$.value === Action.Bi }"
+        (click)="
+          appService.currentAction$.value !== Action.Bi ? bi() : stopCommand()
+        "
       >
-        {{ currentAction === Action.Bi ? "Stop" : "Sync" }}
+        {{ appService.currentAction$.value === Action.Bi ? "Stop" : "Sync" }}
+      </button>
+      <hr class="border-t border-solid border-white" />
+      <button class="text-black bg-white px-2 py-1 hover:bg-gray-400">
+        Settings
       </button>
     </div>
   </div>
-  <code class="min-w-full overflow-hidden text-white">
-    <pre class="text-md" *ngIf="data.length > 0">{{ data.join("\n") }}</pre>
-  </code>
+  <div>
+    <router-outlet></router-outlet>
+  </div>
 </div>

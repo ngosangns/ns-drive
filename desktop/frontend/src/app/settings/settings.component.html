@@ -1,0 +1,10 @@
+<ul>
+   <li *ngFor="let setting of (appService.configInfo$ | async)?.profiles">
+    <details>
+        <summary>{{setting.name}}</summary>
+        <div>
+            <p>{{setting}}</p>
+        </div>
+      </details>
+   </li> 
+</ul>

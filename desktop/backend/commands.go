@@ -2,11 +2,13 @@ package backend
 
 import (
 	"context"
+	"desktop/backend/models"
 	"desktop/backend/rclone"
 	"desktop/backend/utils"
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"time"
 )
 
@@ -88,4 +90,22 @@ func (a *App) StopCommand(id int) {
 
 	res, _ := utils.NewCommandStoppedDTO(id).ToJSON()
 	a.oc <- res
+}
+
+func (a *App) GetConfigInfo() models.ConfigInfo {
+	return a.ConfigInfo
+}
+
+func (a *App) UpdateProfiles(profiles models.Profiles) {
+	a.ConfigInfo.Profiles = profiles
+
+	profilesJson, err := profiles.ToJSON()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = os.WriteFile(".profiles", profilesJson, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
