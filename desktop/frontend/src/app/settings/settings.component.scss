@@ -1,0 +1,11 @@
+summary {
+    @apply select-none;
+}
+
+input {
+    @apply bg-transparent outline-none py-1 border-t-0 border-x-0 rounded-none w-full;
+}
+
+.delete-btn {
+    @apply border-red-500;
+}

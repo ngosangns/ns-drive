@@ -6672,6 +6672,11 @@ symbol-observable@4.0.0:
   resolved "https://registry.npmjs.org/symbol-observable/-/symbol-observable-4.0.0.tgz"
   integrity sha512-b19dMThMV4HVFynSAM1++gBHAbk2Tc/osgLIBZMKsyqh34jb2e8Os7T6ZW/Bt3pJFdBTd2JwAnAAEQV7rSNvcQ==
 
+tailwind-scrollbar@^4.0.0-beta.0:
+  version "4.0.0-beta.0"
+  resolved "https://registry.yarnpkg.com/tailwind-scrollbar/-/tailwind-scrollbar-4.0.0-beta.0.tgz#92e661726e2a33106130b191d1c2ba0ca1039637"
+  integrity sha512-d6qwt3rYDgsKNaQGLW0P6N1TN/87xYZDjH6/PimtFvij2NgC5i3M6mEuVKR4Ixb2u3SvMBT95t7+xzJGJRzXtA==
+
 tailwindcss@^3.4.17:
   version "3.4.17"
   resolved "https://registry.yarnpkg.com/tailwindcss/-/tailwindcss-3.4.17.tgz#ae8406c0f96696a631c790768ff319d46d5e5a63"

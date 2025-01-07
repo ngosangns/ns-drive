@@ -1,4 +1,4 @@
-<div class="flex flex-col gap-3 text-sm min-h-screen p-3 pl-0">
+<div class="flex flex-col gap-3 text-sm h-screen p-3 pl-0 overflow-x-hidden overflow-y-auto">
   <code class="text-white overflow-hidden">
     <pre>Working directory: {{ (appService.configInfo$ | async)?.working_dir }}</pre>
   </code>

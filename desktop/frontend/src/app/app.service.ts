@@ -6,7 +6,12 @@ import {
 } from "@angular/core";
 import { BehaviorSubject } from "rxjs";
 import { dto, models } from "../../wailsjs/go/models";
-import { Sync, StopCommand, GetConfigInfo } from "../../wailsjs/go/backend/App";
+import {
+  Sync,
+  StopCommand,
+  GetConfigInfo,
+  UpdateProfiles,
+} from "../../wailsjs/go/backend/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 interface CommandDTO {
@@ -29,17 +34,18 @@ export class AppService implements OnInit, OnDestroy {
   readonly currentId$ = new BehaviorSubject<number>(0);
   readonly currentAction$ = new BehaviorSubject<Action | undefined>(undefined);
   readonly data$ = new BehaviorSubject<string[]>([]);
-  readonly configInfo$ = new BehaviorSubject<models.ConfigInfo>(
-    new models.ConfigInfo()
-  );
+  readonly configInfo$: BehaviorSubject<models.ConfigInfo>;
 
   constructor() {
+    const configInfo = new models.ConfigInfo();
+    configInfo.profiles = [];
+    this.configInfo$ = new BehaviorSubject<models.ConfigInfo>(configInfo);
+
     EventsOn("tofe", (data: any) => {
       data = <CommandDTO>JSON.parse(data);
 
       switch (data.command) {
         case dto.Command.command_started:
-          this;
           this.replaceData("Command started...");
           break;
         case dto.Command.command_stoped:
@@ -100,10 +106,58 @@ export class AppService implements OnInit, OnDestroy {
   async getConfigInfo() {
     try {
       const configInfo = await GetConfigInfo();
+      configInfo.profiles = configInfo.profiles ?? [];
       this.configInfo$.next(configInfo);
     } catch (e) {
       console.error(e);
       alert("Error getting config info");
     }
+  }
+
+  addProfile() {
+    const profile = new models.Profile();
+    profile.included_paths = [];
+    profile.excluded_paths = [];
+    this.configInfo$.value.profiles.push(profile);
+    this.updateConfigInfo();
+  }
+
+  removeProfile(index: number) {
+    this.configInfo$.value.profiles.splice(index, 1);
+    this.updateConfigInfo();
+  }
+
+  updateConfigInfo() {
+    this.configInfo$.next(this.configInfo$.value);
+  }
+
+  saveConfigInfo() {
+    UpdateProfiles(this.configInfo$.value.profiles);
+  }
+
+  addIncludePath(profileIndex: number) {
+    this.configInfo$.value.profiles[profileIndex].included_paths.push("");
+    this.updateConfigInfo();
+  }
+
+  removeIncludePath(profileIndex: number, index: number) {
+    this.configInfo$.value.profiles[profileIndex].included_paths.splice(
+      index,
+      1
+    );
+    this.updateConfigInfo();
+  }
+
+  addExcludePath(profileIndex: number) {
+    this.configInfo$.value.profiles[profileIndex].excluded_paths.push("");
+    this.updateConfigInfo();
+  }
+
+  removeExcludePath(profileIndex: number, index: number) {
+    this.configInfo$.value.profiles[profileIndex].excluded_paths.splice(
+      index,
+      1
+    );
+    this.updateConfigInfo();
   }
 }

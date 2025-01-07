@@ -22,7 +22,7 @@ type Profile struct {
 type Profiles []Profile
 
 func (profiles Profiles) ToJSON() ([]byte, error) {
-	jsonData, err := json.Marshal(profiles)
+	jsonData, err := json.MarshalIndent(profiles, "", "    ")
 	if err != nil {
 		return []byte{}, err
 	}

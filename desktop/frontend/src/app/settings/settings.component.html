@@ -1,10 +1,124 @@
-<ul>
-   <li *ngFor="let setting of (appService.configInfo$ | async)?.profiles">
-    <details>
-        <summary>{{setting.name}}</summary>
-        <div>
-            <p>{{setting}}</p>
-        </div>
+<ul
+  class="text-white text-sm h-screen p-3 pl-0 flex flex-col items-start gap-3"
+>
+  <section class="flex gap-2 w-full">
+    <button class="px-3 py-1" (click)="addProfile()">Add +</button>
+    <div class="grow"></div>
+    <button (click)="saveConfigInfo()">
+      {{ saveBtnText$ | async }}
+    </button>
+  </section>
+  <ul
+    class="w-full grow bg-[var(--color-accent)] overflow-x-hidden overflow-y-auto rounded-md px-3 scrollbar scrollbar-thumb-gray-900 scrollbar-track-[var(--color-accent)]"
+  >
+    <li
+      *ngFor="
+        let setting of (appService.configInfo$ | async)?.profiles;
+        let idx = index
+      "
+    >
+      <details class="my-3">
+        <summary>
+          {{ setting.name || "Chưa có tiêu đề" }}
+        </summary>
+        <ul class="w-full mt-2 shadow-none">
+          <section class="grid grid-cols-2 gap-6">
+            <!-- <select [(ngModel)]="setting.from">
+              <option value="bootstrapped">bootstrapped</option>
+              <option value="VC-backed">funded</option>
+            </select> -->
+            <input
+              type="text"
+              [(ngModel)]="setting.from"
+              placeholder="From path"
+            />
+            <input type="text" [(ngModel)]="setting.to" placeholder="To path" />
+            <input
+              type="text"
+              [(ngModel)]="setting.backup_path"
+              placeholder="Backup path"
+            />
+            <input
+              type="text"
+              [(ngModel)]="setting.cache_path"
+              placeholder="Cache path"
+            />
+            <input
+              type="number"
+              [(ngModel)]="setting.parallel"
+              placeholder="Parallel"
+            />
+            <input
+              type="number"
+              [(ngModel)]="setting.parallel_checker"
+              placeholder="Parallel checker"
+            />
+            <input
+              type="number"
+              [(ngModel)]="setting.bandwidth"
+              placeholder="Bandwidth (MB/s)"
+            />
+            <div></div>
+            <ul>
+              <li>Include paths</li>
+              <li
+                *ngFor="
+                  let s of setting.included_paths;
+                  trackBy: trackByFn;
+                  let idx2 = index
+                "
+                class="flex gap-2"
+              >
+                <input
+                  type="text"
+                  [(ngModel)]="setting.included_paths[idx2]"
+                  placeholder="Included path"
+                />
+                <button
+                  class="border-red-500"
+                  (click)="removeIncludePath(idx, idx2)"
+                >
+                  ✕
+                </button>
+              </li>
+              <li>
+                <button (click)="addIncludePath(idx)">+</button>
+              </li>
+            </ul>
+            <ul>
+              <li>Exclude paths</li>
+              <li
+                *ngFor="
+                  let s of setting.excluded_paths;
+                  trackBy: trackByFn;
+                  let idx2 = index
+                "
+                class="flex gap-2"
+              >
+                <input
+                  type="text"
+                  [(ngModel)]="setting.excluded_paths[idx2]"
+                  placeholder="Excluded path"
+                />
+                <button
+                  class="border-red-500"
+                  (click)="removeExcludePath(idx, idx2)"
+                >
+                  ✕
+                </button>
+              </li>
+              <li>
+                <button (click)="addExcludePath(idx)">+</button>
+              </li>
+            </ul>
+          </section>
+          <section class="flex justify-start mt-6">
+            <button class="delete-btn" (click)="removeProfile(idx)">
+              Delete
+            </button>
+          </section>
+        </ul>
       </details>
-   </li> 
+    </li>
+  </ul>
 </ul>

@@ -2,12 +2,15 @@
   class="fixed top-0 left-0 w-screen min-h-screen overflow-hidden grid bg-gray-900"
   style="grid-template-columns: max-content 1fr"
 >
-  <div class="p-3">
+  <div class="p-3 text-white">
     <div class="w-full flex justify-center flex-col gap-2">
-      <h1 class="block text-center text-white font-bold text-3xl">Drive</h1>
-      <hr class="border-t border-solid border-white" />
+      <h1
+        class="block text-center font-bold text-3xl select-none cursor-pointer"
+        (click)="openHome()"
+      >
+        Drive
+      </h1>
       <button
-        class="text-black bg-white px-2 py-1 hover:bg-gray-400"
         [ngClass]="{
           underline: appService.currentAction$.value === Action.Pull
         }"
@@ -20,7 +23,6 @@
         {{ appService.currentAction$.value === Action.Pull ? "Stop" : "Pull" }}
       </button>
       <button
-        class="text-black bg-white px-2 py-1 hover:bg-gray-400"
         [ngClass]="{
           underline: appService.currentAction$.value === Action.Push
         }"
@@ -33,7 +35,6 @@
         {{ appService.currentAction$.value === Action.Push ? "Stop" : "Push" }}
       </button>
       <button
-        class="text-black bg-white px-2 py-1 hover:bg-gray-400"
         [ngClass]="{ underline: appService.currentAction$.value === Action.Bi }"
         (click)="
           appService.currentAction$.value !== Action.Bi ? bi() : stopCommand()
@@ -41,13 +42,11 @@
       >
         {{ appService.currentAction$.value === Action.Bi ? "Stop" : "Sync" }}
       </button>
-      <hr class="border-t border-solid border-white" />
-      <button class="text-black bg-white px-2 py-1 hover:bg-gray-400">
-        Settings
-      </button>
+      <button class="mt-2" (click)="openSettings()">Settings</button>
     </div>
   </div>
-  <div>
-    <router-outlet></router-outlet>
+  <div [ngSwitch]="tab$ | async">
+    <app-home *ngSwitchCase="'home'"></app-home>
+    <app-settings *ngSwitchCase="'settings'"></app-settings>
   </div>
 </div>
