@@ -15,6 +15,7 @@ import (
 	_ "github.com/rclone/rclone/backend/cache"
 	_ "github.com/rclone/rclone/backend/drive"
 	_ "github.com/rclone/rclone/backend/local"
+	_ "github.com/rclone/rclone/backend/yandex"
 )
 
 func Sync(ctx context.Context, config *beConfig.Config, task string, outLog chan string) error {
