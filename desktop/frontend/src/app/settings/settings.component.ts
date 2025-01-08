@@ -31,6 +31,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.changeDetectorSub = this.appService.configInfo$.subscribe(() => this.cdr.detectChanges());
+    this.appService.getConfigInfo();
   }
 
   ngOnDestroy(): void {}

@@ -40,66 +40,71 @@ func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) er
 	}
 
 	// Handle resync
-	dir, err := os.Getwd()
-	if utils.HandleError(err, "Failed to get current working directory", nil, nil) != nil {
-		return err
-	}
-	path := filepath.Join(dir, ".resync")
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		_, err = os.Create(path)
-		if utils.HandleError(err, "Failed to create .resync file", nil, nil) != nil {
+
+	if config.Resync {
+		opt.Resync = config.Resync
+	} else {
+		dir, err := os.Getwd()
+		if utils.HandleError(err, "Failed to get current working directory", nil, nil) != nil {
 			return err
 		}
-	}
-	filterFileChecksum := "0"
-	if config.FilterFile != "" {
-		filterFileChecksum, err = utils.CalculateFileHash(filepath.Join(dir, config.FilterFile), sha256.New)
-		if utils.HandleError(err, "Failed to calculate hash of filter file", nil, nil) != nil {
+		path := filepath.Join(dir, ".resync")
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			_, err = os.Create(path)
+			if utils.HandleError(err, "Failed to create .resync file", nil, nil) != nil {
+				return err
+			}
+		}
+		filterFileChecksum := "0"
+		if config.FilterFile != "" {
+			filterFileChecksum, err = utils.CalculateFileHash(filepath.Join(dir, config.FilterFile), sha256.New)
+			if utils.HandleError(err, "Failed to calculate hash of filter file", nil, nil) != nil {
+				return err
+			}
+		}
+		filterFileChecksumLinePrefix := config.FromFs + "|" + config.ToFs + "|"
+		filterFileChecksumLine := filterFileChecksumLinePrefix + filterFileChecksum
+		filterFileChecksumLineContained := false
+		resyncContent, err := os.ReadFile(path)
+		if utils.HandleError(err, "Failed to read .resync file", nil, nil) != nil {
 			return err
 		}
-	}
-	filterFileChecksumLinePrefix := config.FromFs + "|" + config.ToFs + "|"
-	filterFileChecksumLine := filterFileChecksumLinePrefix + filterFileChecksum
-	filterFileChecksumLineContained := false
-	resyncContent, err := os.ReadFile(path)
-	if utils.HandleError(err, "Failed to read .resync file", nil, nil) != nil {
-		return err
-	}
-	resyncContentStrArr := strings.Split(string(resyncContent), "\n")
-	for _, line := range resyncContentStrArr {
-		if line == filterFileChecksumLine {
-			filterFileChecksumLineContained = true
-			break
-		}
-	}
-	if !filterFileChecksumLineContained {
-		// Update .resync file content
-		newResyncContentStrArr := []string{}
-		isAdded := false
+		resyncContentStrArr := strings.Split(string(resyncContent), "\n")
 		for _, line := range resyncContentStrArr {
-			if line == "" {
-				continue
+			if line == filterFileChecksumLine {
+				filterFileChecksumLineContained = true
+				break
 			}
-			if strings.HasPrefix(line, filterFileChecksumLinePrefix) {
+		}
+		if !filterFileChecksumLineContained {
+			// Update .resync file content
+			newResyncContentStrArr := []string{}
+			isAdded := false
+			for _, line := range resyncContentStrArr {
+				if line == "" {
+					continue
+				}
+				if strings.HasPrefix(line, filterFileChecksumLinePrefix) {
+					newResyncContentStrArr = append(newResyncContentStrArr, filterFileChecksumLine)
+					isAdded = true
+				} else {
+					newResyncContentStrArr = append(newResyncContentStrArr, line)
+				}
+			}
+			if !isAdded {
 				newResyncContentStrArr = append(newResyncContentStrArr, filterFileChecksumLine)
-				isAdded = true
-			} else {
-				newResyncContentStrArr = append(newResyncContentStrArr, line)
 			}
+			// Write to .resync file
+			err = os.WriteFile(path, []byte(strings.Join(newResyncContentStrArr, "\n")), 0644)
+			if utils.HandleError(err, "Failed to write to .resync file", nil, nil) != nil {
+				return err
+			}
+			// Set resync flag
+			opt.Resync = true
+			// if err = opt.ResyncMode.Set(bisync.PreferNewer.String()); err != nil {
+			// 	return err
+			// }
 		}
-		if !isAdded {
-			newResyncContentStrArr = append(newResyncContentStrArr, filterFileChecksumLine)
-		}
-		// Write to .resync file
-		err = os.WriteFile(path, []byte(strings.Join(newResyncContentStrArr, "\n")), 0644)
-		if utils.HandleError(err, "Failed to write to .resync file", nil, nil) != nil {
-			return err
-		}
-		// Set resync flag
-		opt.Resync = true
-		// if err = opt.ResyncMode.Set(bisync.PreferNewer.String()); err != nil {
-		// 	return err
-		// }
 	}
 
 	srcFs, err := fs.NewFs(ctx, config.FromFs)
