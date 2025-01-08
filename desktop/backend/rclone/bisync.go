@@ -3,8 +3,9 @@ package rclone
 import (
 	"context"
 	"crypto/sha256"
-	beConfig "desktop/backend/config"
+	"desktop/backend/models"
 	"desktop/backend/utils"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +15,7 @@ import (
 	"github.com/rclone/rclone/fs/filter"
 )
 
-func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) error {
+func BiSync(ctx context.Context, profile models.Profile, resync bool, outLog chan string) error {
 	var err error
 
 	// Initialize the config
@@ -40,9 +41,8 @@ func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) er
 	}
 
 	// Handle resync
-
-	if config.Resync {
-		opt.Resync = config.Resync
+	if resync {
+		opt.Resync = true
 	} else {
 		dir, err := os.Getwd()
 		if utils.HandleError(err, "Failed to get current working directory", nil, nil) != nil {
@@ -56,13 +56,13 @@ func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) er
 			}
 		}
 		filterFileChecksum := "0"
-		if config.FilterFile != "" {
-			filterFileChecksum, err = utils.CalculateFileHash(filepath.Join(dir, config.FilterFile), sha256.New)
+		if len(profile.IncludedPaths)+len(profile.ExcludedPaths) > 0 {
+			filterFileChecksum, err = utils.CalculateContentHash(utils.MergeBytes([]byte(strings.Join(profile.IncludedPaths, "")), []byte(strings.Join(profile.ExcludedPaths, ""))), sha256.New)
 			if utils.HandleError(err, "Failed to calculate hash of filter file", nil, nil) != nil {
 				return err
 			}
 		}
-		filterFileChecksumLinePrefix := config.FromFs + "|" + config.ToFs + "|"
+		filterFileChecksumLinePrefix := profile.From + "|" + profile.To + "|"
 		filterFileChecksumLine := filterFileChecksumLinePrefix + filterFileChecksum
 		filterFileChecksumLineContained := false
 		resyncContent, err := os.ReadFile(path)
@@ -107,31 +107,32 @@ func BiSync(ctx context.Context, config *beConfig.Config, outLog chan string) er
 		}
 	}
 
-	srcFs, err := fs.NewFs(ctx, config.FromFs)
+	srcFs, err := fs.NewFs(ctx, profile.From)
 	if utils.HandleError(err, "Failed to initialize source filesystem", nil, nil) != nil {
 		return err
 	}
 
-	dstFs, err := fs.NewFs(ctx, config.ToFs)
+	dstFs, err := fs.NewFs(ctx, profile.To)
 	if utils.HandleError(err, "Failed to initialize destination filesystem", nil, nil) != nil {
 		return err
 	}
 
 	// Set up filter rules
 	filterOpt := filter.GetConfig(ctx).Opt
-	filterOpt.FilterFrom = append([]string{config.FilterFile}, filterOpt.FilterFrom...)
+	filterOpt.IncludeRule = append(filterOpt.IncludeRule, profile.IncludedPaths...)
+	filterOpt.ExcludeRule = append(filterOpt.ExcludeRule, profile.ExcludedPaths...)
 	newFilter, err := filter.NewFilter(&filterOpt)
 	utils.HandleError(err, "Invalid filters file", nil, func() {
 		ctx = filter.ReplaceConfig(ctx, newFilter)
 	})
 
 	// Set bandwidth limit
-	if config.Bandwidth != "" {
-		utils.HandleError(fsConfig.BwLimit.Set(config.Bandwidth), "Failed to set bandwidth limit", nil, nil)
+	if profile.Bandwidth > 0 {
+		utils.HandleError(fsConfig.BwLimit.Set(fmt.Sprint(profile.Bandwidth)+"M"), "Failed to set bandwidth limit", nil, nil)
 	}
 
 	// Set parallel transfers
-	fsConfig.Transfers = config.Parallel
+	fsConfig.Transfers = profile.Parallel
 
 	fsConfig.Progress = true
 	fsConfig.Reload(ctx)

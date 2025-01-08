@@ -10,8 +10,8 @@ export function StopCommand(arg1) {
   return window['go']['backend']['App']['StopCommand'](arg1);
 }
 
-export function Sync(arg1) {
-  return window['go']['backend']['App']['Sync'](arg1);
+export function Sync(arg1, arg2) {
+  return window['go']['backend']['App']['Sync'](arg1, arg2);
 }
 
 export function UpdateProfiles(arg1) {

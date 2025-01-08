@@ -25,6 +25,7 @@ export enum Action {
   Pull = "pull",
   Push = "push",
   Bi = "bi",
+  BiResync = "bi-resync",
 }
 
 @Injectable({
@@ -74,27 +75,27 @@ export class AppService implements OnInit, OnDestroy {
     this.data$.next([str]);
   }
 
-  async pull() {
+  async pull(profile: models.Profile) {
     if (this.currentAction$.value === Action.Pull) return;
 
     this.replaceData("Pulling...");
-    this.currentId$.next(await Sync("pull"));
+    this.currentId$.next(await Sync(<Action>"pull", profile));
     if (this.currentId$.value) this.currentAction$.next(Action.Pull);
   }
 
-  async push() {
+  async push(profile: models.Profile) {
     if (this.currentAction$.value === Action.Push) return;
 
     this.replaceData("Pushing...");
-    this.currentId$.next(await Sync("push"));
+    this.currentId$.next(await Sync(<Action>"push", profile));
     if (this.currentId$.value) this.currentAction$.next(Action.Push);
   }
 
-  async bi() {
+  async bi(profile: models.Profile, resync = false) {
     if (this.currentAction$.value === Action.Bi) return;
 
     this.replaceData("Bi...");
-    this.currentId$.next(await Sync("bi"));
+    this.currentId$.next(await Sync(resync ? <Action>"bi-resync" : <Action>"bi", profile));
     if (this.currentId$.value) this.currentAction$.next(Action.Bi);
   }
 
@@ -107,6 +108,7 @@ export class AppService implements OnInit, OnDestroy {
     try {
       const configInfo = await GetConfigInfo();
       configInfo.profiles = configInfo.profiles ?? [];
+      console.log(configInfo);
       this.configInfo$.next(configInfo);
     } catch (e) {
       console.error(e);

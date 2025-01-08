@@ -22,45 +22,79 @@
           {{ setting.name || "Chưa có tiêu đề" }}
         </summary>
         <ul class="w-full mt-2 shadow-none">
-          <section class="grid grid-cols-2 gap-6">
-            <!-- <select [(ngModel)]="setting.from">
-              <option value="bootstrapped">bootstrapped</option>
-              <option value="VC-backed">funded</option>
-            </select> -->
+          <div class="flex flex-col gap-1">
+            <label>Name</label>
             <input
               type="text"
-              [(ngModel)]="setting.from"
-              placeholder="From path"
+              [(ngModel)]="setting.name"
+              placeholder="Chưa có tiêu đề"
             />
-            <input type="text" [(ngModel)]="setting.to" placeholder="To path" />
-            <input
-              type="text"
-              [(ngModel)]="setting.backup_path"
-              placeholder="Backup path"
-            />
-            <input
-              type="text"
-              [(ngModel)]="setting.cache_path"
-              placeholder="Cache path"
-            />
-            <input
-              type="number"
-              [(ngModel)]="setting.parallel"
-              placeholder="Parallel"
-            />
-            <input
-              type="number"
-              [(ngModel)]="setting.parallel_checker"
-              placeholder="Parallel checker"
-            />
-            <input
-              type="number"
-              [(ngModel)]="setting.bandwidth"
-              placeholder="Bandwidth (MB/s)"
-            />
+          </div>
+          <section class="grid grid-cols-2 gap-6 mt-6">
+            <div class="flex flex-col gap-1">
+              <label>From path</label>
+              <input
+                type="text"
+                [(ngModel)]="setting.from"
+                placeholder="google-drive:/drive"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label>To path</label>
+              <input
+                type="text"
+                [(ngModel)]="setting.to"
+                placeholder="./drive"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label>Backup path</label>
+              <input
+                type="text"
+                [(ngModel)]="setting.backup_path"
+                placeholder=".backup"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label>Cache path</label>
+              <input
+                type="text"
+                [(ngModel)]="setting.cache_path"
+                placeholder=".cache"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label>Parallel</label>
+              <input
+                type="number"
+                [(ngModel)]="setting.parallel"
+                placeholder="16"
+                min="1"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label>Parallel checker</label>
+              <input
+                type="number"
+                [(ngModel)]="setting.parallel_checker"
+                placeholder="16"
+                min="1"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label>Bandwidth (MB/s)</label>
+              <input
+                type="number"
+                [(ngModel)]="setting.bandwidth"
+                placeholder="5"
+                min="1"
+              />
+            </div>
             <div></div>
             <ul>
-              <li>Include paths</li>
+              <li>
+                <label>Include paths</label>
+              </li>
               <li
                 *ngFor="
                   let s of setting.included_paths;
@@ -72,7 +106,7 @@
                 <input
                   type="text"
                   [(ngModel)]="setting.included_paths[idx2]"
-                  placeholder="Included path"
+                  placeholder="/included/**"
                 />
                 <button
                   class="border-red-500"
@@ -86,7 +120,9 @@
               </li>
             </ul>
             <ul>
-              <li>Exclude paths</li>
+              <li>
+                <label>Exclude paths</label>
+              </li>
               <li
                 *ngFor="
                   let s of setting.excluded_paths;
@@ -98,7 +134,7 @@
                 <input
                   type="text"
                   [(ngModel)]="setting.excluded_paths[idx2]"
-                  placeholder="Excluded path"
+                  placeholder="/excluded/**"
                 />
                 <button
                   class="border-red-500"

@@ -1,13 +1,13 @@
 export namespace constants {
 	
+	export enum Environment {
+	    development = 0,
+	    production = 1,
+	}
 	export enum Platform {
 	    windows = 0,
 	    darwin = 1,
 	    linux = 2,
-	}
-	export enum Environment {
-	    development = 0,
-	    production = 1,
 	}
 
 }
@@ -58,6 +58,7 @@ export namespace models {
 	}
 	export class ConfigInfo {
 	    working_dir: string;
+	    selected_profile_index: number;
 	    profiles: Profile[];
 	
 	    static createFrom(source: any = {}) {
@@ -67,6 +68,7 @@ export namespace models {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.working_dir = source["working_dir"];
+	        this.selected_profile_index = source["selected_profile_index"];
 	        this.profiles = this.convertValues(source["profiles"], Profile);
 	    }
 	

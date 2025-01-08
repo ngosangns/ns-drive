@@ -6,6 +6,6 @@ export function GetConfigInfo():Promise<models.ConfigInfo>;
 
 export function StopCommand(arg1:number):Promise<void>;
 
-export function Sync(arg1:string):Promise<number>;
+export function Sync(arg1:string,arg2:models.Profile):Promise<number>;
 
 export function UpdateProfiles(arg1:models.Profiles):Promise<void>;

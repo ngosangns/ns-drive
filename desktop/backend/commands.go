@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func (a *App) Sync(task string) int {
+func (a *App) Sync(task string, profile models.Profile) int {
 	id := time.Now().Nanosecond()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -57,11 +57,13 @@ func (a *App) Sync(task string) int {
 	go func() {
 		switch task {
 		case "pull":
-			err = rclone.Sync(ctx, config, "pull", outLog)
+			err = rclone.Sync(ctx, config, "pull", profile, outLog)
 		case "push":
-			err = rclone.Sync(ctx, config, "push", outLog)
+			err = rclone.Sync(ctx, config, "push", profile, outLog)
 		case "bi":
-			err = rclone.BiSync(ctx, config, outLog)
+			err = rclone.BiSync(ctx, profile, false, outLog)
+		case "bi-resync":
+			err = rclone.BiSync(ctx, profile, true, outLog)
 		}
 
 		if utils.HandleError(err, "", nil, nil) != nil {

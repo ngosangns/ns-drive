@@ -2,8 +2,6 @@ package models
 
 import (
 	"encoding/json"
-	"io"
-	"os"
 )
 
 type Profile struct {
@@ -27,37 +25,4 @@ func (profiles Profiles) ToJSON() ([]byte, error) {
 		return []byte{}, err
 	}
 	return jsonData, nil
-}
-
-func (profiles Profiles) ReadFromFile() error {
-	if _, err := os.Stat(".profiles"); os.IsNotExist(err) {
-		file, err := os.Create(".profiles")
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		_, err = file.Write([]byte("[]"))
-		if err != nil {
-			return err
-		}
-	}
-
-	file, err := os.Open(".profiles")
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	byteValue, err := io.ReadAll(file)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(byteValue, &profiles)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

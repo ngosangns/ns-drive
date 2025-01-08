@@ -38,7 +38,7 @@ func (a *App) Startup(ctx context.Context) {
 	a.ConfigInfo.WorkingDir = wd
 
 	// Load profiles
-	err = a.ConfigInfo.Profiles.ReadFromFile()
+	err = a.ConfigInfo.ReadFromFile()
 	if err != nil {
 		utils.LogErrorAndExit(err)
 	}

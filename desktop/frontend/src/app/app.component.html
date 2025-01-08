@@ -4,45 +4,11 @@
 >
   <div class="p-3 text-white">
     <div class="w-full flex justify-center flex-col gap-2">
-      <h1
-        class="block text-center font-bold text-3xl select-none cursor-pointer"
-        (click)="openHome()"
-      >
+      <h1 class="block text-center font-bold text-3xl select-none cursor-default">
         Drive
       </h1>
-      <button
-        [ngClass]="{
-          underline: appService.currentAction$.value === Action.Pull
-        }"
-        (click)="
-          appService.currentAction$.value !== Action.Pull
-            ? pull()
-            : stopCommand()
-        "
-      >
-        {{ appService.currentAction$.value === Action.Pull ? "Stop" : "Pull" }}
-      </button>
-      <button
-        [ngClass]="{
-          underline: appService.currentAction$.value === Action.Push
-        }"
-        (click)="
-          appService.currentAction$.value !== Action.Push
-            ? push()
-            : stopCommand()
-        "
-      >
-        {{ appService.currentAction$.value === Action.Push ? "Stop" : "Push" }}
-      </button>
-      <button
-        [ngClass]="{ underline: appService.currentAction$.value === Action.Bi }"
-        (click)="
-          appService.currentAction$.value !== Action.Bi ? bi() : stopCommand()
-        "
-      >
-        {{ appService.currentAction$.value === Action.Bi ? "Stop" : "Sync" }}
-      </button>
-      <button class="mt-2" (click)="openSettings()">Settings</button>
+      <button class="mt-2" (click)="openHome()" [ngClass]="(tab$ | async) === 'home' ? 'underline' : ''">Home</button>
+      <button class="mt-2" (click)="openSettings()" [ngClass]="(tab$ | async) === 'settings' ? 'underline' : ''">Settings</button>
     </div>
   </div>
   <div [ngSwitch]="tab$ | async">

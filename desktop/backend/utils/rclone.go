@@ -163,3 +163,26 @@ func CalculateFileHash(filePath string, hashFunc func() hash.Hash) (string, erro
 	// Return the hash as a hexadecimal string
 	return hex.EncodeToString(hashSum), nil
 }
+
+func CalculateContentHash(content []byte, hashFunc func() hash.Hash) (string, error) {
+	// Initialize the hash function
+	hasher := hashFunc()
+
+	// Write the content to the hasher
+	if _, err := hasher.Write(content); err != nil {
+		return "", fmt.Errorf("failed to hash content: %w", err)
+	}
+
+	// Compute the final hash
+	hashSum := hasher.Sum(nil)
+
+	// Return the hash as a hexadecimal string
+	return hex.EncodeToString(hashSum), nil
+}
+
+func MergeBytes(a, b []byte) []byte {
+	merged := make([]byte, len(a)+len(b))
+	copy(merged, a)
+	copy(merged[len(a):], b)
+	return merged
+}

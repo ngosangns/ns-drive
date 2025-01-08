@@ -11,6 +11,7 @@ import { Action, AppService } from "./app.service.js";
 import { BehaviorSubject, combineLatest, Subscription } from "rxjs";
 import { SettingsComponent } from "./settings/settings.component";
 import { HomeComponent } from "./home/home.component.js";
+import { models } from "../../wailsjs/go/models.js";
 
 type Tab = "home" | "settings";
 
@@ -44,19 +45,19 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {}
 
-  async pull() {
+  async pull(profile: models.Profile) {
     this.tab$.next("home");
-    this.appService.pull();
+    this.appService.pull(profile);
   }
 
-  async push() {
+  async push(profile: models.Profile) {
     this.tab$.next("home");
-    this.appService.push();
+    this.appService.push(profile);
   }
 
-  async bi() {
+  async bi(profile: models.Profile) {
     this.tab$.next("home");
-    this.appService.bi();
+    this.appService.bi(profile);
   }
 
   stopCommand() {
