@@ -1,13 +1,13 @@
 export namespace constants {
 	
-	export enum Environment {
-	    development = 0,
-	    production = 1,
-	}
 	export enum Platform {
 	    windows = 0,
 	    darwin = 1,
 	    linux = 2,
+	}
+	export enum Environment {
+	    development = 0,
+	    production = 1,
 	}
 
 }
@@ -34,7 +34,6 @@ export namespace models {
 	    excluded_paths: string[];
 	    bandwidth: number;
 	    parallel: number;
-	    parallel_checker: number;
 	    backup_path: string;
 	    cache_path: string;
 	
@@ -51,7 +50,6 @@ export namespace models {
 	        this.excluded_paths = source["excluded_paths"];
 	        this.bandwidth = source["bandwidth"];
 	        this.parallel = source["parallel"];
-	        this.parallel_checker = source["parallel_checker"];
 	        this.backup_path = source["backup_path"];
 	        this.cache_path = source["cache_path"];
 	    }

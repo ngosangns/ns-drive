@@ -28,7 +28,7 @@ func Sync(ctx context.Context, config *beConfig.Config, task string, profile mod
 	// Initialize the config
 	fsConfig := fs.GetConfig(ctx)
 	fsConfig.Transfers = profile.Parallel
-	fsConfig.Checkers = profile.ParallelChecker
+	fsConfig.Checkers = profile.Parallel
 
 	var err error
 
