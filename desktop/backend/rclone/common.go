@@ -2,12 +2,10 @@ package rclone
 
 import (
 	"context"
-	beConfig "desktop/backend/config"
 	"desktop/backend/utils"
 	"os"
 	"runtime/pprof"
 
-	env "github.com/caarlos0/env/v11"
 	"github.com/rclone/rclone/fs"
 	"github.com/rclone/rclone/fs/accounting"
 	"github.com/rclone/rclone/fs/config/configfile"
@@ -150,25 +148,4 @@ func InitConfig(ctx context.Context, isDebugMode bool) (context.Context, error) 
 	}
 
 	return ctx, nil
-}
-
-func LoadConfigFromEnv() (*beConfig.Config, error) {
-	// Load the .env file
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	err = utils.LoadEnvFile(wd + "/.env")
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse environment variables into the struct
-	var config beConfig.Config
-	if err := env.Parse(&config); err != nil {
-		return nil, err
-	}
-
-	return &config, nil
 }

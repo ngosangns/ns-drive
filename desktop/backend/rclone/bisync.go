@@ -3,6 +3,7 @@ package rclone
 import (
 	"context"
 	"crypto/sha256"
+	"desktop/backend/config"
 	"desktop/backend/models"
 	"desktop/backend/utils"
 	"fmt"
@@ -15,7 +16,7 @@ import (
 	"github.com/rclone/rclone/fs/filter"
 )
 
-func BiSync(ctx context.Context, profile models.Profile, resync bool, outLog chan string) error {
+func BiSync(ctx context.Context, config *config.Config, profile models.Profile, resync bool, outLog chan string) error {
 	var err error
 
 	// Initialize the config
@@ -48,7 +49,7 @@ func BiSync(ctx context.Context, profile models.Profile, resync bool, outLog cha
 		if utils.HandleError(err, "Failed to get current working directory", nil, nil) != nil {
 			return err
 		}
-		path := filepath.Join(dir, ".resync")
+		path := filepath.Join(dir, config.ResyncFilePath)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			_, err = os.Create(path)
 			if utils.HandleError(err, "Failed to create .resync file", nil, nil) != nil {

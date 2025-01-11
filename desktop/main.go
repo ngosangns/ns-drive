@@ -15,7 +15,6 @@ import (
 var assets embed.FS
 
 func main() {
-
 	// Create an instance of the app structure
 	app := be.NewApp()
 

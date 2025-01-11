@@ -3,16 +3,18 @@
   style="grid-template-columns: max-content 1fr"
 >
   <div class="p-3 text-white">
-    <div class="w-full flex justify-center flex-col gap-2">
+    <div class="w-full flex justify-center flex-col gap-3">
       <h1 class="block text-center font-bold text-3xl select-none cursor-default">
         Drive
       </h1>
-      <button class="mt-2" (click)="openHome()" [ngClass]="(tab$ | async) === 'home' ? 'underline' : ''">Home</button>
-      <button class="mt-2" (click)="openSettings()" [ngClass]="(tab$ | async) === 'settings' ? 'underline' : ''">Settings</button>
+      <button (click)="openHome()" [ngClass]="(tab$ | async) === 'home' ? 'underline' : ''">Home</button>
+      <button (click)="openProfiles()" [ngClass]="(tab$ | async) === 'profiles' ? 'underline' : ''">Profiles</button>
+      <button (click)="openRemotes()" [ngClass]="(tab$ | async) === 'remotes' ? 'underline' : ''">Remotes</button>
     </div>
   </div>
   <div [ngSwitch]="tab$ | async">
     <app-home *ngSwitchCase="'home'"></app-home>
-    <app-settings *ngSwitchCase="'settings'"></app-settings>
+    <app-profiles *ngSwitchCase="'profiles'"></app-profiles>
+    <app-remotes *ngSwitchCase="'remotes'"></app-remotes>
   </div>
 </div>

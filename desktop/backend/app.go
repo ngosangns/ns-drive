@@ -6,6 +6,8 @@ import (
 	"desktop/backend/utils"
 	"os"
 
+	fsConfig "github.com/rclone/rclone/fs/config"
+	"github.com/rclone/rclone/fs/config/configfile"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -30,6 +32,11 @@ func (a *App) Startup(ctx context.Context) {
 		utils.LogErrorAndExit(err)
 	}
 
+	config, err := utils.LoadConfigFromEnv()
+	if err != nil {
+		utils.LogErrorAndExit(err)
+	}
+
 	// Load working directory
 	wd, err := os.Getwd()
 	if err != nil {
@@ -38,7 +45,7 @@ func (a *App) Startup(ctx context.Context) {
 	a.ConfigInfo.WorkingDir = wd
 
 	// Load profiles
-	err = a.ConfigInfo.ReadFromFile()
+	err = a.ConfigInfo.ReadFromFile(*config)
 	if err != nil {
 		utils.LogErrorAndExit(err)
 	}
@@ -50,4 +57,8 @@ func (a *App) Startup(ctx context.Context) {
 			runtime.EventsEmit(a.ctx, "tofe", string(data))
 		}
 	}()
+
+	// Load Rclone config
+	fsConfig.SetConfigPath(config.RcloneFilePath)
+	configfile.Install()
 }

@@ -1,8 +1,9 @@
 package models
 
 import (
+	"desktop/backend/config"
+	"desktop/backend/utils"
 	"encoding/json"
-	"io"
 	"os"
 )
 
@@ -20,39 +21,33 @@ func (c ConfigInfo) ToJSON() ([]byte, error) {
 	return jsonData, nil
 }
 
-func (c *ConfigInfo) ReadFromFile() error {
-	if _, err := os.Stat(".profiles"); os.IsNotExist(err) {
-		file, err := os.Create(".profiles")
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		_, err = file.Write([]byte("[]"))
-		if err != nil {
-			return err
-		}
-	}
-
-	file, err := os.Open(".profiles")
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	byteValue, err := io.ReadAll(file)
+func (c *ConfigInfo) ReadFromFile(cf config.Config) error {
+	profilesByteValue, err := utils.ReadFromFile(cf.ProfileFilePath)
 	if err != nil {
 		return err
 	}
 
 	profiles := Profiles{}
-
-	err = json.Unmarshal(byteValue, &profiles)
+	err = json.Unmarshal(profilesByteValue, &profiles)
 	if err != nil {
 		return err
 	}
 
 	c.Profiles = profiles
+
+	return nil
+}
+
+func (c *ConfigInfo) WriteToFile(cf config.Config) error {
+	profilesJson, err := c.Profiles.ToJSON()
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(cf.ProfileFilePath, profilesJson, 0644)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

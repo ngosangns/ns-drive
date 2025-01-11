@@ -2,14 +2,20 @@ package backend
 
 import (
 	"context"
+	"desktop/backend/dto"
 	"desktop/backend/models"
 	"desktop/backend/rclone"
 	"desktop/backend/utils"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
+
+	fsConfig "github.com/rclone/rclone/fs/config"
+	"github.com/rclone/rclone/fs/rc"
+	"github.com/rclone/rclone/lib/oauthutil"
 )
 
 func (a *App) Sync(task string, profile models.Profile) int {
@@ -17,7 +23,7 @@ func (a *App) Sync(task string, profile models.Profile) int {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	config, err := rclone.LoadConfigFromEnv()
+	config, err := utils.LoadConfigFromEnv()
 	if utils.HandleError(err, "", nil, nil) != nil {
 		j, _ := utils.NewCommandErrorDTO(id, err).ToJSON()
 		a.oc <- j
@@ -61,9 +67,9 @@ func (a *App) Sync(task string, profile models.Profile) int {
 		case "push":
 			err = rclone.Sync(ctx, config, "push", profile, outLog)
 		case "bi":
-			err = rclone.BiSync(ctx, profile, false, outLog)
+			err = rclone.BiSync(ctx, config, profile, false, outLog)
 		case "bi-resync":
-			err = rclone.BiSync(ctx, profile, true, outLog)
+			err = rclone.BiSync(ctx, config, profile, true, outLog)
 		}
 
 		if utils.HandleError(err, "", nil, nil) != nil {
@@ -98,16 +104,52 @@ func (a *App) GetConfigInfo() models.ConfigInfo {
 	return a.ConfigInfo
 }
 
-func (a *App) UpdateProfiles(profiles models.Profiles) {
+func (a *App) UpdateProfiles(profiles models.Profiles) *dto.AppError {
 	a.ConfigInfo.Profiles = profiles
 
 	profilesJson, err := profiles.ToJSON()
 	if err != nil {
-		log.Fatal(err)
+		return dto.NewAppError(err)
 	}
 
-	err = os.WriteFile(".profiles", profilesJson, 0644)
+	config, err := utils.LoadConfigFromEnv()
 	if err != nil {
-		log.Fatal(err)
+		return dto.NewAppError(err)
 	}
+
+	err = os.WriteFile(config.ProfileFilePath, profilesJson, 0644)
+	if err != nil {
+		return dto.NewAppError(err)
+	}
+
+	return nil
+}
+
+func (a *App) GetRemotes() []fsConfig.Remote {
+	return fsConfig.GetRemotes()
+}
+
+func (a *App) AddRemote(remoteName string, remoteType string, remoteConfig map[string]string) *dto.AppError {
+	ctx := context.Background()
+	_, err := fsConfig.CreateRemote(ctx, remoteName, remoteType, rc.Params{}, fsConfig.UpdateRemoteOpt{})
+	if err != nil {
+		a.DeleteRemote(remoteName)
+	}
+
+	return dto.NewAppError(err)
+}
+
+func (a *App) StopAddingRemote() *dto.AppError {
+	const OAUTH_REDIRECT_URL = oauthutil.RedirectURL
+	resp, err := http.Get(OAUTH_REDIRECT_URL)
+	if err != nil {
+		return dto.NewAppError(err)
+	}
+
+	defer resp.Body.Close()
+	return nil
+}
+
+func (a *App) DeleteRemote(remoteName string) {
+	fsConfig.DeleteRemote(remoteName)
 }

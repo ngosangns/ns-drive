@@ -1,16 +1,15 @@
-import {
-  ChangeDetectorRef,
-  Injectable,
-  OnDestroy,
-  OnInit,
-} from "@angular/core";
+import { Injectable, OnDestroy, OnInit } from "@angular/core";
 import { BehaviorSubject } from "rxjs";
-import { dto, models } from "../../wailsjs/go/models";
+import { config, dto, models } from "../../wailsjs/go/models";
 import {
   Sync,
   StopCommand,
   GetConfigInfo,
   UpdateProfiles,
+  GetRemotes,
+  DeleteRemote,
+  AddRemote,
+  StopAddingRemote,
 } from "../../wailsjs/go/backend/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 
@@ -36,6 +35,7 @@ export class AppService implements OnInit, OnDestroy {
   readonly currentAction$ = new BehaviorSubject<Action | undefined>(undefined);
   readonly data$ = new BehaviorSubject<string[]>([]);
   readonly configInfo$: BehaviorSubject<models.ConfigInfo>;
+  readonly remotes$ = new BehaviorSubject<config.Remote[]>([]);
 
   constructor() {
     const configInfo = new models.ConfigInfo();
@@ -65,6 +65,7 @@ export class AppService implements OnInit, OnDestroy {
     });
 
     this.getConfigInfo();
+    this.getRemotes();
   }
 
   async ngOnInit() {}
@@ -95,7 +96,9 @@ export class AppService implements OnInit, OnDestroy {
     if (this.currentAction$.value === Action.Bi) return;
 
     this.replaceData("Bi...");
-    this.currentId$.next(await Sync(resync ? <Action>"bi-resync" : <Action>"bi", profile));
+    this.currentId$.next(
+      await Sync(resync ? <Action>"bi-resync" : <Action>"bi", profile)
+    );
     if (this.currentId$.value) this.currentAction$.next(Action.Bi);
   }
 
@@ -108,11 +111,49 @@ export class AppService implements OnInit, OnDestroy {
     try {
       const configInfo = await GetConfigInfo();
       configInfo.profiles = configInfo.profiles ?? [];
-      console.log(configInfo);
       this.configInfo$.next(configInfo);
     } catch (e) {
       console.error(e);
       alert("Error getting config info");
+    }
+  }
+
+  async getRemotes() {
+    try {
+      const remotes = await GetRemotes();
+      this.remotes$.next(remotes ?? []);
+    } catch (e) {
+      console.error(e);
+      alert("Error getting remotes");
+    }
+  }
+
+  async addRemote(objData: Record<string, string>) {
+    try {
+      const err = await AddRemote(objData["name"], objData["type"], {});
+      if (err) throw err.message;
+      await this.getRemotes();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async stopAddingRemote() {
+    try {
+      const err = await StopAddingRemote();
+      if (err) throw err.message;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async deleteRemote(name: string) {
+    try {
+      await DeleteRemote(name);
+      await this.getRemotes();
+    } catch (e) {
+      console.error(e);
+      alert("Error deleting remote");
     }
   }
 
@@ -133,8 +174,15 @@ export class AppService implements OnInit, OnDestroy {
     this.configInfo$.next(this.configInfo$.value);
   }
 
-  saveConfigInfo() {
-    UpdateProfiles(this.configInfo$.value.profiles);
+  async saveConfigInfo() {
+    try {
+      const err = await UpdateProfiles(this.configInfo$.value.profiles);
+      if (err) {
+        throw err.message;
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   addIncludePath(profileIndex: number) {

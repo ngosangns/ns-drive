@@ -4,6 +4,10 @@ import (
 	"bufio"
 	"os"
 	"strings"
+
+	beConfig "desktop/backend/config"
+
+	"github.com/caarlos0/env/v11"
 )
 
 func LoadEnvFile(filename string) error {
@@ -39,4 +43,25 @@ func LoadEnvFile(filename string) error {
 	}
 
 	return scanner.Err()
+}
+
+func LoadConfigFromEnv() (*beConfig.Config, error) {
+	// Load the .env file
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	err = LoadEnvFile(wd + "/.env")
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse environment variables into the struct
+	var config beConfig.Config
+	if err := env.Parse(&config); err != nil {
+		return nil, err
+	}
+
+	return &config, nil
 }

@@ -3,7 +3,4 @@
 /desktop.app
 /desktop.exe
 /desktop.log
-/.resync
-/.rclonefilter
 /**/package.json.md5
-/.profiles

@@ -9,20 +9,20 @@ import {
 } from "@angular/core";
 import { Action, AppService } from "./app.service.js";
 import { BehaviorSubject, combineLatest, Subscription } from "rxjs";
-import { SettingsComponent } from "./settings/settings.component";
 import { HomeComponent } from "./home/home.component.js";
 import { models } from "../../wailsjs/go/models.js";
+import { ProfilesComponent } from "./profiles/profiles.component.js";
+import { RemotesComponent } from "./remotes/remotes.component.js";
 
-type Tab = "home" | "settings";
+type Tab = "home" | "profiles" | "remotes";
 
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [CommonModule, SettingsComponent, HomeComponent, SettingsComponent],
+  imports: [CommonModule, HomeComponent, ProfilesComponent, RemotesComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.scss",
   changeDetection: ChangeDetectionStrategy.OnPush,
-  encapsulation: ViewEncapsulation.None
 })
 export class AppComponent implements OnInit, OnDestroy {
   Action = Action;
@@ -68,7 +68,11 @@ export class AppComponent implements OnInit, OnDestroy {
     this.tab$.next("home");
   }
 
-  openSettings() {
-    this.tab$.next("settings");
+  openProfiles() {
+    this.tab$.next("profiles");
+  }
+
+  openRemotes() {
+    this.tab$.next("remotes");
   }
 }

@@ -1,3 +1,26 @@
+export namespace config {
+	
+	export class Remote {
+	    name: string;
+	    type: string;
+	    source: string;
+	    description: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Remote(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.type = source["type"];
+	        this.source = source["source"];
+	        this.description = source["description"];
+	    }
+	}
+
+}
+
 export namespace constants {
 	
 	export enum Platform {
@@ -20,6 +43,18 @@ export namespace dto {
 	    command_started = "command_started",
 	    working_dir_updated = "working_dir_updated",
 	    error = "error",
+	}
+	export class AppError {
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AppError(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.message = source["message"];
+	    }
 	}
 
 }

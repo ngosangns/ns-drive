@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("mvp.css/mvp.css");
+
+* {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+button {
+    @apply text-sm px-2 py-2 m-0 bg-transparent;
+}
+
+button:disabled {
+    @apply bg-transparent text-gray-500 border-gray-500;
+}
+
+input {
+    @apply bg-transparent outline-none py-1 border-t-0 border-x-0 rounded-none w-full;
+}
+
+input:disabled,
+select:disabled {
+    @apply bg-none bg-transparent border-0 text-gray-500;
+}
+
+select {
+    border: 2px solid var(--color-link);
+    border-radius: var(--border-radius);
+    background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' version='1.1' height='10px' width='15px'%3E%3Ctext x='0' y='10' fill='gray'%3E%E2%96%BE%3C/text%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: 1.5em 1em;
+    background-position: right center;
+    background-clip: border-box;
+    @apply bg-transparent m-0 px-2 py-1;
+}

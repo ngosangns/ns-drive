@@ -2,7 +2,7 @@
   class="text-white text-sm h-screen p-3 pl-0 flex flex-col items-start gap-3"
 >
   <section class="flex gap-2 w-full">
-    <button class="px-3 py-1" (click)="addProfile()">Add +</button>
+    <button (click)="addProfile()">Add +</button>
     <div class="grow"></div>
     <button (click)="saveConfigInfo()">
       {{ saveBtnText$ | async }}
