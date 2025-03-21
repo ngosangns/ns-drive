@@ -9,13 +9,24 @@ import {
 import { combineLatest, map, Subscription } from "rxjs";
 import { Action, AppService } from "../app.service";
 import { models } from "../../../wailsjs/go/models";
+import { MatButtonModule } from "@angular/material/button";
+import { MatSelectModule } from "@angular/material/select";
+import { MatFormFieldModule } from "@angular/material/form-field";
+import { MatCardModule } from "@angular/material/card";
 
 @Component({
-    selector: "app-home",
-    imports: [CommonModule],
-    templateUrl: "./home.component.html",
-    styleUrl: "./home.component.css",
-    changeDetection: ChangeDetectionStrategy.OnPush
+  selector: "app-home",
+  standalone: true,
+  imports: [
+    CommonModule,
+    MatButtonModule,
+    MatSelectModule,
+    MatFormFieldModule,
+    MatCardModule,
+  ],
+  templateUrl: "./home.component.html",
+  styleUrl: "./home.component.scss",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HomeComponent implements OnInit, OnDestroy {
   Action = Action;

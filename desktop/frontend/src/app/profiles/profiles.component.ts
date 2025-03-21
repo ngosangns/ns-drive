@@ -9,13 +9,31 @@ import {
 import { AppService } from "../app.service";
 import { BehaviorSubject, Subscription } from "rxjs";
 import { FormsModule } from "@angular/forms";
+import { MatButtonModule } from "@angular/material/button";
+import { MatInputModule } from "@angular/material/input";
+import { MatFormFieldModule } from "@angular/material/form-field";
+import { MatExpansionModule } from "@angular/material/expansion";
+import { MatCardModule } from "@angular/material/card";
+import { MatDividerModule } from "@angular/material/divider";
+import { MatIconModule } from "@angular/material/icon";
 
 @Component({
-    selector: "app-profiles",
-    imports: [CommonModule, FormsModule],
-    templateUrl: "./profiles.component.html",
-    styleUrl: "./profiles.component.scss",
-    changeDetection: ChangeDetectionStrategy.OnPush
+  selector: "app-profiles",
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatButtonModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatExpansionModule,
+    MatCardModule,
+    MatDividerModule,
+    MatIconModule,
+  ],
+  templateUrl: "./profiles.component.html",
+  styleUrl: "./profiles.component.scss",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ProfilesComponent implements OnInit, OnDestroy {
   Date = Date;
@@ -29,7 +47,9 @@ export class ProfilesComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.changeDetectorSub = this.appService.configInfo$.subscribe(() => this.cdr.detectChanges());
+    this.changeDetectorSub = this.appService.configInfo$.subscribe(() =>
+      this.cdr.detectChanges()
+    );
     this.appService.getConfigInfo();
   }
 

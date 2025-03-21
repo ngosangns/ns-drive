@@ -1,150 +1,110 @@
-<ul
-  class="text-white text-sm h-screen p-3 pl-0 flex flex-col items-start gap-3"
->
-  <section class="flex gap-2 w-full">
-    <button (click)="addProfile()">Add +</button>
-    <div class="grow"></div>
-    <button (click)="saveConfigInfo()">
-      {{ saveBtnText$ | async }}
-    </button>
-  </section>
-  <ul
-    class="w-full grow bg-[var(--color-accent)] overflow-x-hidden overflow-y-auto rounded-md px-3 scrollbar scrollbar-thumb-gray-900 scrollbar-track-[var(--color-accent)]"
-  >
-    <li
-      *ngFor="
-        let setting of (appService.configInfo$ | async)?.profiles;
-        let idx = index
-      "
-    >
-      <details class="my-3">
-        <summary>
-          {{ setting.name || "Chưa có tiêu đề" }}
-        </summary>
-        <ul class="w-full mt-2 shadow-none">
-          <div class="flex flex-col gap-1">
-            <label>Name</label>
-            <input
-              type="text"
-              [(ngModel)]="setting.name"
-              placeholder="Chưa có tiêu đề"
-            />
+<div class="h-screen p-6 pl-3 overflow-x-hidden overflow-y-auto">
+  <mat-card>
+    <mat-card-content>
+      <div class="flex gap-3 mb-4">
+        <button mat-raised-button color="primary" (click)="addProfile()">
+          <mat-icon>add</mat-icon> Add Profile
+        </button>
+        <div class="grow"></div>
+        <button mat-raised-button color="accent" (click)="saveConfigInfo()">
+          {{ saveBtnText$ | async }}
+        </button>
+      </div>
+
+      <mat-accordion class="w-full" multi>
+        <mat-expansion-panel *ngFor="let setting of (appService.configInfo$ | async)?.profiles; let idx = index">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              {{ setting.name || "Chưa có tiêu đề" }}
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <div class="p-3">
+            <mat-form-field appearance="outline" class="w-full mb-4">
+              <mat-label>Name</mat-label>
+              <input matInput [(ngModel)]="setting.name" placeholder="Chưa có tiêu đề">
+            </mat-form-field>
+
+            <div class="grid grid-cols-2 gap-4">
+              <mat-form-field appearance="outline">
+                <mat-label>From path</mat-label>
+                <input matInput [(ngModel)]="setting.from" placeholder="google-drive:/drive">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>To path</mat-label>
+                <input matInput [(ngModel)]="setting.to" placeholder="./drive">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Backup path</mat-label>
+                <input matInput [(ngModel)]="setting.backup_path" placeholder=".backup">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Cache path</mat-label>
+                <input matInput [(ngModel)]="setting.cache_path" placeholder=".cache">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Parallel</mat-label>
+                <input matInput type="number" [(ngModel)]="setting.parallel" placeholder="16" min="1">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Bandwidth (MB/s)</mat-label>
+                <input matInput type="number" [(ngModel)]="setting.bandwidth" placeholder="5" min="1">
+              </mat-form-field>
+            </div>
+
+            <mat-card class="mt-4">
+              <mat-card-header>
+                <mat-card-title>Include paths</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div *ngFor="let s of setting.included_paths; trackBy: trackByFn; let idx2 = index"
+                  class="flex items-center gap-2 mb-2">
+                  <mat-form-field appearance="outline" class="w-full">
+                    <input matInput [(ngModel)]="setting.included_paths[idx2]" placeholder="/included/**">
+                  </mat-form-field>
+                  <button mat-icon-button color="warn" (click)="removeIncludePath(idx, idx2)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+                <button mat-button color="primary" (click)="addIncludePath(idx)">
+                  <mat-icon>add</mat-icon> Add path
+                </button>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="mt-4">
+              <mat-card-header>
+                <mat-card-title>Exclude paths</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div *ngFor="let s of setting.excluded_paths; trackBy: trackByFn; let idx2 = index"
+                  class="flex items-center gap-2 mb-2">
+                  <mat-form-field appearance="outline" class="w-full">
+                    <input matInput [(ngModel)]="setting.excluded_paths[idx2]" placeholder="/excluded/**">
+                  </mat-form-field>
+                  <button mat-icon-button color="warn" (click)="removeExcludePath(idx, idx2)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+                <button mat-button color="primary" (click)="addExcludePath(idx)">
+                  <mat-icon>add</mat-icon> Add path
+                </button>
+              </mat-card-content>
+            </mat-card>
+
+            <div class="mt-4">
+              <button mat-raised-button color="warn" (click)="removeProfile(idx)">
+                <mat-icon>delete</mat-icon> Delete Profile
+              </button>
+            </div>
           </div>
-          <section class="grid grid-cols-2 gap-6 mt-6">
-            <div class="flex flex-col gap-1">
-              <label>From path</label>
-              <input
-                type="text"
-                [(ngModel)]="setting.from"
-                placeholder="google-drive:/drive"
-              />
-            </div>
-            <div class="flex flex-col gap-1">
-              <label>To path</label>
-              <input
-                type="text"
-                [(ngModel)]="setting.to"
-                placeholder="./drive"
-              />
-            </div>
-            <div class="flex flex-col gap-1">
-              <label>Backup path</label>
-              <input
-                type="text"
-                [(ngModel)]="setting.backup_path"
-                placeholder=".backup"
-              />
-            </div>
-            <div class="flex flex-col gap-1">
-              <label>Cache path</label>
-              <input
-                type="text"
-                [(ngModel)]="setting.cache_path"
-                placeholder=".cache"
-              />
-            </div>
-            <div class="flex flex-col gap-1">
-              <label>Parallel</label>
-              <input
-                type="number"
-                [(ngModel)]="setting.parallel"
-                placeholder="16"
-                min="1"
-              />
-            </div>
-            <div class="flex flex-col gap-1">
-              <label>Bandwidth (MB/s)</label>
-              <input
-                type="number"
-                [(ngModel)]="setting.bandwidth"
-                placeholder="5"
-                min="1"
-              />
-            </div>
-            <ul>
-              <li>
-                <label>Include paths</label>
-              </li>
-              <li
-                *ngFor="
-                  let s of setting.included_paths;
-                  trackBy: trackByFn;
-                  let idx2 = index
-                "
-                class="flex gap-2"
-              >
-                <input
-                  type="text"
-                  [(ngModel)]="setting.included_paths[idx2]"
-                  placeholder="/included/**"
-                />
-                <button
-                  class="border-red-500"
-                  (click)="removeIncludePath(idx, idx2)"
-                >
-                  ✕
-                </button>
-              </li>
-              <li>
-                <button (click)="addIncludePath(idx)">+</button>
-              </li>
-            </ul>
-            <ul>
-              <li>
-                <label>Exclude paths</label>
-              </li>
-              <li
-                *ngFor="
-                  let s of setting.excluded_paths;
-                  trackBy: trackByFn;
-                  let idx2 = index
-                "
-                class="flex gap-2"
-              >
-                <input
-                  type="text"
-                  [(ngModel)]="setting.excluded_paths[idx2]"
-                  placeholder="/excluded/**"
-                />
-                <button
-                  class="border-red-500"
-                  (click)="removeExcludePath(idx, idx2)"
-                >
-                  ✕
-                </button>
-              </li>
-              <li>
-                <button (click)="addExcludePath(idx)">+</button>
-              </li>
-            </ul>
-          </section>
-          <section class="flex justify-start mt-6">
-            <button class="delete-btn" (click)="removeProfile(idx)">
-              Delete
-            </button>
-          </section>
-        </ul>
-      </details>
-    </li>
-  </ul>
-</ul>
+        </mat-expansion-panel>
+      </mat-accordion>
+    </mat-card-content>
+  </mat-card>
+</div>

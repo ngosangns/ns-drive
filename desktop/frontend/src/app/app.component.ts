@@ -12,15 +12,28 @@ import { HomeComponent } from "./home/home.component.js";
 import { models } from "../../wailsjs/go/models.js";
 import { ProfilesComponent } from "./profiles/profiles.component.js";
 import { RemotesComponent } from "./remotes/remotes.component.js";
+import { MatButtonModule } from "@angular/material/button";
+import { MatToolbarModule } from "@angular/material/toolbar";
+import { MatSidenavModule } from "@angular/material/sidenav";
+import { MatIconModule } from "@angular/material/icon";
 
 type Tab = "home" | "profiles" | "remotes";
 
 @Component({
-    selector: "app-root",
-    imports: [CommonModule, HomeComponent, ProfilesComponent, RemotesComponent],
-    templateUrl: "./app.component.html",
-    styleUrl: "./app.component.scss",
-    changeDetection: ChangeDetectionStrategy.OnPush
+  selector: "app-root",
+  imports: [
+    CommonModule,
+    HomeComponent,
+    ProfilesComponent,
+    RemotesComponent,
+    MatButtonModule,
+    MatToolbarModule,
+    MatSidenavModule,
+    MatIconModule,
+  ],
+  templateUrl: "./app.component.html",
+  styleUrl: "./app.component.scss",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent implements OnInit, OnDestroy {
   Action = Action;

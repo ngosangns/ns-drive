@@ -1,20 +1,28 @@
-<div
-  class="fixed top-0 left-0 w-screen min-h-screen overflow-hidden grid bg-gray-900"
-  style="grid-template-columns: max-content 1fr"
->
-  <div class="p-3 text-white">
-    <div class="w-full flex justify-center flex-col gap-3">
-      <h1 class="block text-center font-bold text-3xl select-none cursor-default">
-        Drive
-      </h1>
-      <button (click)="openHome()" [ngClass]="(tab$ | async) === 'home' ? 'underline' : ''">Home</button>
-      <button (click)="openProfiles()" [ngClass]="(tab$ | async) === 'profiles' ? 'underline' : ''">Profiles</button>
-      <button (click)="openRemotes()" [ngClass]="(tab$ | async) === 'remotes' ? 'underline' : ''">Remotes</button>
+<mat-sidenav-container class="h-screen">
+  <mat-sidenav mode="side" opened class="bg-gray-900 w-48 p-0">
+    <mat-toolbar color="primary" class="flex flex-col items-center">
+      <h1 class="text-3xl font-bold select-none cursor-default">Drive</h1>
+    </mat-toolbar>
+    <div class="p-3 flex flex-col gap-3">
+      <button mat-button (click)="openHome()" [color]="(tab$ | async) === 'home' ? 'accent' : ''"
+        class="w-full text-left">
+        <mat-icon>home</mat-icon> Home
+      </button>
+      <button mat-button (click)="openProfiles()" [color]="(tab$ | async) === 'profiles' ? 'accent' : ''"
+        class="w-full text-left">
+        <mat-icon>settings</mat-icon> Profiles
+      </button>
+      <button mat-button (click)="openRemotes()" [color]="(tab$ | async) === 'remotes' ? 'accent' : ''"
+        class="w-full text-left">
+        <mat-icon>cloud</mat-icon> Remotes
+      </button>
     </div>
-  </div>
-  <div [ngSwitch]="tab$ | async">
-    <app-home *ngSwitchCase="'home'"></app-home>
-    <app-profiles *ngSwitchCase="'profiles'"></app-profiles>
-    <app-remotes *ngSwitchCase="'remotes'"></app-remotes>
-  </div>
-</div>
+  </mat-sidenav>
+  <mat-sidenav-content class="bg-gray-900">
+    <div [ngSwitch]="tab$ | async">
+      <app-home *ngSwitchCase="'home'"></app-home>
+      <app-profiles *ngSwitchCase="'profiles'"></app-profiles>
+      <app-remotes *ngSwitchCase="'remotes'"></app-remotes>
+    </div>
+  </mat-sidenav-content>
+</mat-sidenav-container>
