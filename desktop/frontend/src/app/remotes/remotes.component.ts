@@ -34,8 +34,6 @@ import {
     MatTableModule,
     MatDialogModule,
     MatIconModule,
-    CreateRemoteDialogComponent,
-    DeleteRemoteDialogComponent,
   ],
   templateUrl: "./remotes.component.html",
   styleUrl: "./remotes.component.scss",

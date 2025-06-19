@@ -8,21 +8,11 @@
 
 ## Build Commands
 
-### Windows
-
-```sh
-task build-app-win
-```
-
 ### Mac
 
 ```sh
 task build-app-mac
 ```
-
-## Execution
-
-Execute the `./desktop.exe` file located in the project's root directory after building.
 
 ## Screenshots
 

@@ -13,29 +13,13 @@ tasks:
     platforms: [darwin]
     cmds:
       - wails build -v 2
+      
       # - codesign --sign - --force --deep build/bin/desktop.app
       # - upx --best build/bin/desktop --force-macos
       # - chmod +x build/bin/desktop.app/Contents/MacOS/desktop
+
       - rm -rf ../desktop.app
       - mv build/bin/desktop.app ../desktop.app
+
       # - open ../desktop.app
     dir: desktop
-
-  build-app-win:
-    platforms: [windows]
-    cmds:
-      - wails build -v 2 # -windowsconsole to show the console for debugging
-      - powershell.exe "Move-Item -Path ./build/bin/desktop.exe -Destination ../desktop.exe -Force"
-    dir: desktop
-
-  rp:
-    cmds:
-      - repomix --compress --remove-comments --remove-empty-lines --include "desktop/backend/**/*.go,desktop/frontend/src/**/*.ts,desktop/frontend/src/**/*.html"
-
-  rp-fe:
-    cmds:
-      - repomix --compress --remove-comments --remove-empty-lines --include "desktop/frontend/src/**/*.ts,desktop/frontend/src/**/*.html,desktop/my-app/src/**/*.ts,desktop/my-app/src/**/*.html"
-
-  rp-be:
-    cmds:
-      - repomix --compress --remove-comments --remove-empty-lines --include "desktop/backend/**/*.go"
