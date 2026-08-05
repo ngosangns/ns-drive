@@ -17,7 +17,7 @@ permissions:
 
 env:
   APP_NAME: gn-drive
-  GO_VERSION: "1.25.0"
+  GO_VERSION: "1.26.5"
 
 jobs:
   build:
@@ -57,7 +57,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
 
       - name: Setup Node
         uses: actions/setup-node@v4

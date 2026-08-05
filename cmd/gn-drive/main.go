@@ -28,7 +28,7 @@ Subcommands:
   run          Start foreground or service mode
   service      Install, uninstall, start, stop, or check service status
   sync         One-shot sync (pull, push, bi, bi-resync)
-  board        Execute a board DAG
+  board        (legacy) Execute a board DAG — prefer flows in the web UI
   profile      Manage sync profiles
   remote       Manage rclone remotes
   self-update  Download and apply updates from GitHub Releases

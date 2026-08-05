@@ -2,164 +2,239 @@ package browser
 
 import (
 	"errors"
-	"os"
-	"runtime"
+	"strings"
 	"testing"
 )
+
+const testURL = "https://example.test/app"
 
 func TestNew_ReturnsOpener(t *testing.T) {
 	o := New()
 	if o == nil {
 		t.Fatal("New returned nil")
 	}
-	if o.GOOS != nil {
-		t.Error("GOOS should default to nil")
+	if o.GOOS != nil || o.LookPath != nil || o.Start != nil {
+		t.Error("New should leave hooks nil (production defaults)")
 	}
 }
 
-func TestOpen_DarwinStartsOpen(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("darwin-only test")
+func TestNoop_DoesNotStart(t *testing.T) {
+	started := false
+	// Noop sets Start; Open must still resolve a command then call it.
+	// Replace Start after Noop to observe, or rely on Noop's own Start.
+	o := Noop()
+	// Hijack to detect calls while keeping no-op behavior.
+	orig := o.Start
+	o.Start = func(name string, arg ...string) error {
+		started = true
+		return orig(name, arg...)
 	}
-	o := New()
-	// We just verify it returns no error and does not panic.
-	// We cannot easily verify the spawned "open" process without
-	// exposing the cmd, so we just check the call path.
-	_ = o.Open("https://example.invalid")
+	o.GOOS = func() string { return "darwin" }
+	if err := o.Open(testURL); err != nil {
+		t.Fatal(err)
+	}
+	if !started {
+		t.Fatal("Noop Start should still be invoked by Open")
+	}
 }
 
-func TestOpen_LinuxUsesXdgOpen(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("linux-only test")
+func TestResolveCommand_Darwin(t *testing.T) {
+	name, args, err := resolveCommand("darwin", nil, testURL)
+	if err != nil {
+		t.Fatal(err)
 	}
-	o := New()
-	// xdg-open may or may not be installed; either way, Open should
-	// return a sensible error or succeed without panic.
-	_ = o.Open("https://example.invalid")
+	if name != "open" || len(args) != 1 || args[0] != testURL {
+		t.Fatalf("got %q %v", name, args)
+	}
 }
 
-func TestOpen_WindowsRundll32(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("windows-only test")
+func TestResolveCommand_Windows(t *testing.T) {
+	name, args, err := resolveCommand("windows", nil, testURL)
+	if err != nil {
+		t.Fatal(err)
 	}
-	o := New()
-	_ = o.Open("https://example.invalid")
+	if name != "rundll32" || len(args) != 2 || args[0] != "url.dll,FileProtocolHandler" || args[1] != testURL {
+		t.Fatalf("got %q %v", name, args)
+	}
+}
+
+func TestResolveCommand_Unsupported(t *testing.T) {
+	_, _, err := resolveCommand("plan9", nil, testURL)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "unsupported platform") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestResolveCommand_Linux_XDGOpen(t *testing.T) {
+	look := func(file string) (string, error) {
+		if file == "xdg-open" {
+			return "/bin/xdg-open", nil
+		}
+		return "", errors.New("not found")
+	}
+	name, args, err := resolveCommand("linux", look, testURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "xdg-open" || len(args) != 1 || args[0] != testURL {
+		t.Fatalf("got %q %v", name, args)
+	}
+}
+
+func TestResolveCommand_Linux_GIO(t *testing.T) {
+	look := func(file string) (string, error) {
+		if file == "gio" {
+			return "/bin/gio", nil
+		}
+		return "", errors.New("not found")
+	}
+	name, args, err := resolveCommand("linux", look, testURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "gio" || len(args) != 2 || args[0] != "open" || args[1] != testURL {
+		t.Fatalf("got %q %v", name, args)
+	}
+}
+
+func TestResolveCommand_Linux_SensibleBrowser(t *testing.T) {
+	look := func(file string) (string, error) {
+		if file == "sensible-browser" {
+			return "/bin/sensible-browser", nil
+		}
+		return "", errors.New("not found")
+	}
+	name, args, err := resolveCommand("linux", look, testURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "sensible-browser" || len(args) != 1 || args[0] != testURL {
+		t.Fatalf("got %q %v", name, args)
+	}
+}
+
+func TestResolveCommand_Linux_NoOpener(t *testing.T) {
+	look := func(file string) (string, error) {
+		return "", errors.New("not found")
+	}
+	_, _, err := resolveCommand("linux", look, testURL)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "xdg-open") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestOpen_DarwinUsesOpen(t *testing.T) {
+	var gotName string
+	var gotArgs []string
+	o := &Opener{
+		GOOS: func() string { return "darwin" },
+		Start: func(name string, arg ...string) error {
+			gotName, gotArgs = name, append([]string(nil), arg...)
+			return nil
+		},
+	}
+	if err := o.Open(testURL); err != nil {
+		t.Fatal(err)
+	}
+	if gotName != "open" || len(gotArgs) != 1 || gotArgs[0] != testURL {
+		t.Fatalf("got %q %v", gotName, gotArgs)
+	}
+}
+
+func TestOpen_WindowsUsesRundll32(t *testing.T) {
+	var gotName string
+	var gotArgs []string
+	o := &Opener{
+		GOOS: func() string { return "windows" },
+		Start: func(name string, arg ...string) error {
+			gotName, gotArgs = name, append([]string(nil), arg...)
+			return nil
+		},
+	}
+	if err := o.Open(testURL); err != nil {
+		t.Fatal(err)
+	}
+	if gotName != "rundll32" {
+		t.Fatalf("name = %q", gotName)
+	}
+	if len(gotArgs) != 2 || gotArgs[0] != "url.dll,FileProtocolHandler" || gotArgs[1] != testURL {
+		t.Fatalf("args = %v", gotArgs)
+	}
+}
+
+func TestOpen_LinuxUsesInjectedLookPath(t *testing.T) {
+	var gotName string
+	o := &Opener{
+		GOOS: func() string { return "linux" },
+		LookPath: func(file string) (string, error) {
+			if file == "gio" {
+				return "/usr/bin/gio", nil
+			}
+			return "", errors.New("missing")
+		},
+		Start: func(name string, arg ...string) error {
+			gotName = name
+			return nil
+		},
+	}
+	if err := o.Open(testURL); err != nil {
+		t.Fatal(err)
+	}
+	if gotName != "gio" {
+		t.Fatalf("name = %q, want gio", gotName)
+	}
 }
 
 func TestOpen_UnsupportedPlatformErrors(t *testing.T) {
-	o := &Opener{GOOS: func() string { return "plan9" }}
-	err := o.Open("https://example.invalid")
+	o := &Opener{
+		GOOS: func() string { return "plan9" },
+		Start: func(name string, arg ...string) error {
+			t.Fatal("Start must not be called for unsupported platform")
+			return nil
+		},
+	}
+	err := o.Open(testURL)
 	if err == nil {
-		t.Fatal("expected error for unsupported platform")
+		t.Fatal("expected error")
 	}
 }
 
-func TestOpen_LinuxNoOpenerErrors(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("linux-only test")
+func TestOpen_StartErrorPropagates(t *testing.T) {
+	o := &Opener{
+		GOOS: func() string { return "darwin" },
+		Start: func(name string, arg ...string) error {
+			return errors.New("spawn failed")
+		},
 	}
-	// Patch the lookup by setting PATH to a directory with no executables.
-	t.Setenv("PATH", "/tmp/gn-drive-empty-path-test")
-	err := (&Opener{}).Open("https://example.invalid")
+	err := o.Open(testURL)
 	if err == nil {
-		t.Fatal("expected error when no opener is on PATH")
+		t.Fatal("expected start error")
 	}
-	// The error message should mention the missing tools.
-	if !errorMentions(err, "xdg-open") && !errorMentions(err, "gio") && !errorMentions(err, "sensible-browser") {
-		t.Errorf("error %q should mention a browser opener name", err)
+	if !strings.Contains(err.Error(), "spawn failed") {
+		t.Errorf("err = %v", err)
 	}
 }
 
-func errorMentions(err error, substr string) bool {
+func TestOpen_LinuxNoOpenerDoesNotStart(t *testing.T) {
+	o := &Opener{
+		GOOS:     func() string { return "linux" },
+		LookPath: func(file string) (string, error) { return "", errors.New("none") },
+		Start: func(name string, arg ...string) error {
+			t.Fatal("Start must not be called when no opener exists")
+			return nil
+		},
+	}
+	err := o.Open(testURL)
 	if err == nil {
-		return false
+		t.Fatal("expected error")
 	}
-	s := err.Error()
-	for i := 0; i+len(substr) <= len(s); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
-// TestOpen_OverrideGOOS exercises the GOOS override path.
-func TestOpen_OverrideGOOS(t *testing.T) {
-	o := &Opener{GOOS: func() string { return "darwin" }}
-	// "open" exists on macOS by default. We don't fail if it doesn't.
-	// The contract is: must not panic, may return error.
-	_ = o.Open("https://example.invalid")
-}
-
-// TestOpen_OverrideGOOS_Linux forces the linux path with no openers.
-func TestOpen_OverrideGOOS_Linux(t *testing.T) {
-	t.Setenv("PATH", "/tmp/gn-drive-empty-path-test")
-	o := &Opener{GOOS: func() string { return "linux" }}
-	err := o.Open("https://example.invalid")
-	if err == nil {
-		t.Fatal("expected error for linux with no openers")
-	}
-	if !errorMentions(err, "xdg-open") && !errorMentions(err, "gio") && !errorMentions(err, "sensible-browser") {
-		t.Errorf("error %q should mention a browser opener name", err)
+	if !strings.Contains(err.Error(), "no opener found") {
+		t.Errorf("err = %v", err)
 	}
 }
-
-// TestOpen_OverrideGOOS_Linux_XDGOpen forces the linux path with xdg-open present.
-func TestOpen_OverrideGOOS_Linux_XDGOpen(t *testing.T) {
-	// Create a fake xdg-open in temp dir and put it on PATH.
-	tmp := t.TempDir()
-	fakeBin := tmp + "/xdg-open"
-	if err := writeExecutable(fakeBin, "#!/bin/sh\nexit 0\n"); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", tmp)
-	o := &Opener{GOOS: func() string { return "linux" }}
-	if err := o.Open("https://example.invalid"); err != nil {
-		t.Errorf("Open with xdg-open on PATH: %v", err)
-	}
-}
-
-// TestOpen_OverrideGOOS_Linux_GIO forces the linux path with gio present.
-func TestOpen_OverrideGOOS_Linux_GIO(t *testing.T) {
-	tmp := t.TempDir()
-	fakeBin := tmp + "/gio"
-	if err := writeExecutable(fakeBin, "#!/bin/sh\nexit 0\n"); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", tmp)
-	o := &Opener{GOOS: func() string { return "linux" }}
-	if err := o.Open("https://example.invalid"); err != nil {
-		t.Errorf("Open with gio on PATH: %v", err)
-	}
-}
-
-// TestOpen_OverrideGOOS_Linux_SensibleBrowser forces the linux path with sensible-browser present.
-func TestOpen_OverrideGOOS_Linux_SensibleBrowser(t *testing.T) {
-	tmp := t.TempDir()
-	fakeBin := tmp + "/sensible-browser"
-	if err := writeExecutable(fakeBin, "#!/bin/sh\nexit 0\n"); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", tmp)
-	o := &Opener{GOOS: func() string { return "linux" }}
-	if err := o.Open("https://example.invalid"); err != nil {
-		t.Errorf("Open with sensible-browser on PATH: %v", err)
-	}
-}
-
-// TestOpen_OverrideGOOS_Windows forces the windows path.
-func TestOpen_OverrideGOOS_Windows(t *testing.T) {
-	o := &Opener{GOOS: func() string { return "windows" }}
-	// rundll32 may not be on non-windows; allow error.
-	_ = o.Open("https://example.invalid")
-}
-
-func writeExecutable(path, content string) error {
-	if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Sentinel: ensure the package's error type isn't accidentally shadowed.
-var _ = errors.New

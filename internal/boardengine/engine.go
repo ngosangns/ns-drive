@@ -1,5 +1,8 @@
 // Package boardengine executes board DAGs (nodes + edges) in topological order.
-// Shared by the CLI `board` command and the HTTP API execute/stop endpoints.
+//
+// Legacy: the web workspace does not surface boards (flows + remotes only).
+// This package remains for CLI `gn-drive board` and existing SQLite board rows.
+// Prefer flowengine for new product work. No HTTP board API is exposed.
 package boardengine
 
 import (

@@ -46,9 +46,9 @@ func NormalizeProfileDirection(d string) string {
 // Profile represents a sync profile with all rclone flags.
 // Mirrors models.Profile exactly; JSON keys match the Wails format.
 type Profile struct {
-	Name          string   `json:"name"`
-	From          string   `json:"from"`
-	To            string   `json:"to"`
+	Name string `json:"name"`
+	From string `json:"from"`
+	To   string `json:"to"`
 	// Direction: push | bi | bi-resync (see ValidProfileDirections).
 	Direction     string   `json:"direction,omitempty"`
 	IncludedPaths []string `json:"included_paths"`
@@ -70,27 +70,27 @@ type Profile struct {
 	DeleteExcluded   bool   `json:"delete_excluded,omitempty"`
 
 	// Safety
-	MaxDelete           *int  `json:"max_delete,omitempty"`
-	Immutable           bool  `json:"immutable,omitempty"`
+	MaxDelete           *int   `json:"max_delete,omitempty"`
+	Immutable           bool   `json:"immutable,omitempty"`
 	ConflictResolution  string `json:"conflict_resolution,omitempty"`
-	DryRun              bool  `json:"dry_run,omitempty"`
+	DryRun              bool   `json:"dry_run,omitempty"`
 	MaxTransfer         string `json:"max_transfer,omitempty"`
 	MaxDeleteSize       string `json:"max_delete_size,omitempty"`
 	Suffix              string `json:"suffix,omitempty"`
-	SuffixKeepExtension bool  `json:"suffix_keep_extension,omitempty"`
+	SuffixKeepExtension bool   `json:"suffix_keep_extension,omitempty"`
 
 	// Performance
-	MultiThreadStreams *int   `json:"multi_thread_streams,omitempty"`
-	BufferSize         string `json:"buffer_size,omitempty"`
-	Retries            *int   `json:"retries,omitempty"`
-	LowLevelRetries    *int   `json:"low_level_retries,omitempty"`
-	MaxDuration        string `json:"max_duration,omitempty"`
-	CheckFirst         bool   `json:"check_first,omitempty"`
-	OrderBy            string `json:"order_by,omitempty"`
-	RetriesSleep       string `json:"retries_sleep,omitempty"`
+	MultiThreadStreams *int     `json:"multi_thread_streams,omitempty"`
+	BufferSize         string   `json:"buffer_size,omitempty"`
+	Retries            *int     `json:"retries,omitempty"`
+	LowLevelRetries    *int     `json:"low_level_retries,omitempty"`
+	MaxDuration        string   `json:"max_duration,omitempty"`
+	CheckFirst         bool     `json:"check_first,omitempty"`
+	OrderBy            string   `json:"order_by,omitempty"`
+	RetriesSleep       string   `json:"retries_sleep,omitempty"`
 	TpsLimit           *float64 `json:"tps_limit,omitempty"`
-	ConnTimeout        string `json:"conn_timeout,omitempty"`
-	IoTimeout          string `json:"io_timeout,omitempty"`
+	ConnTimeout        string   `json:"conn_timeout,omitempty"`
+	IoTimeout          string   `json:"io_timeout,omitempty"`
 
 	// Comparison
 	SizeOnly       bool `json:"size_only,omitempty"`
@@ -148,11 +148,11 @@ type HistoryEntry struct {
 
 // HistoryStats aggregates counts across history.
 type HistoryStats struct {
-	TotalSyncs    int                      `json:"total_syncs"`
-	TotalBytes    int64                    `json:"total_bytes"`
-	TotalDuration int64                    `json:"total_duration_secs"`
-	TotalErrors   int                      `json:"total_errors"`
-	ByProfile     map[string]ProfileStats  `json:"by_profile"`
+	TotalSyncs    int                     `json:"total_syncs"`
+	TotalBytes    int64                   `json:"total_bytes"`
+	TotalDuration int64                   `json:"total_duration_secs"`
+	TotalErrors   int                     `json:"total_errors"`
+	ByProfile     map[string]ProfileStats `json:"by_profile"`
 }
 
 // ProfileStats is per-profile aggregate.
@@ -186,10 +186,10 @@ type BoardNode struct {
 
 // BoardEdge is a sync connection.
 type BoardEdge struct {
-	ID        string  `json:"id"`
-	SourceID  string  `json:"source_id"`
-	TargetID  string  `json:"target_id"`
-	Action    string  `json:"action"`
+	ID         string          `json:"id"`
+	SourceID   string          `json:"source_id"`
+	TargetID   string          `json:"target_id"`
+	Action     string          `json:"action"`
 	SyncConfig json.RawMessage `json:"sync_config"`
 }
 
@@ -225,6 +225,7 @@ func NormalizeFlowAction(a string) string {
 // Action semantics:
 //   - push: Source → Target
 //   - bi / bi-resync: bidirectional between Source and Target
+//
 // Action is stored both in the action column and inside sync_config.action.
 type Operation struct {
 	ID           string          `json:"id"`
@@ -298,10 +299,10 @@ func mergeSyncConfigAction(raw json.RawMessage, action string) json.RawMessage {
 // Flow is a named container of sequential Operations (Wails models.Flow).
 // Maps: schedule_enabled → Enabled / ScheduleEnabled, cron_expr → ScheduleCron / CronExpr.
 type Flow struct {
-	ID              string      `json:"id"`
-	Name            string      `json:"name"`
-	IsCollapsed     bool        `json:"is_collapsed"`
-	ScheduleEnabled bool        `json:"schedule_enabled"`
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	IsCollapsed     bool   `json:"is_collapsed"`
+	ScheduleEnabled bool   `json:"schedule_enabled"`
 	// Enabled is an alias of ScheduleEnabled for older FE clients.
 	Enabled      bool        `json:"enabled"`
 	ScheduleCron string      `json:"schedule_cron,omitempty"`

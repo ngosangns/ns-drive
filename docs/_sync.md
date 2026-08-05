@@ -23,4 +23,4 @@ Single-process CLI + Vue Workspace portal on loopback **53241**. Product web sur
 
 **Flow schedules** register into `syncengine` cron as `flow:<id>` and call `FlowEngine.Execute` on tick. Profile `schedules` table still loads for legacy rows. CLI board/profile/sync unchanged.
 
-**Stack:** Go 1.25, chi, Vue 3 + Vite 6 + Pinia + Tailwind 4. Lint via `go vet` + `vue-tsc`. Docs under `docs/` with plan `specs/planning/cleanup-full-project.md` (implemented).
+**Stack:** Go 1.26.5, chi, Vue 3 + Vite 7 + Pinia + Tailwind 4. Lint via `go vet` + `vue-tsc`. Docs under `docs/` with plan `specs/planning/cleanup-full-project.md` (implemented).

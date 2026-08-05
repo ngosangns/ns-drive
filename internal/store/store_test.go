@@ -175,12 +175,12 @@ func TestProfileRepo_SaveGetListDelete(t *testing.T) {
 
 	// Save.
 	p := &Profile{
-		Name:      "backup",
-		From:      "remote:src",
-		To:        "remote:dst",
-		Direction: "push",
-		Parallel:  4,
-		Bandwidth: 100,
+		Name:          "backup",
+		From:          "remote:src",
+		To:            "remote:dst",
+		Direction:     "push",
+		Parallel:      4,
+		Bandwidth:     100,
 		IncludedPaths: []string{"*.txt"},
 		ExcludedPaths: []string{"*.tmp"},
 	}
@@ -314,53 +314,53 @@ func TestProfileRepo_AllOptionalFields(t *testing.T) {
 	maxDepth := 10
 	tpsLimit := 12.5
 	p := &Profile{
-		Name:               "full",
-		From:               "a:",
-		To:                 "b:",
-		IncludedPaths:      []string{"x", "y"},
-		ExcludedPaths:      []string{"z"},
-		Bandwidth:          100,
-		Parallel:           4,
-		BackupPath:         "/back",
-		CachePath:          "/cache",
-		MinSize:            "1k",
-		MaxSize:            "1G",
-		FilterFromFile:     "filter.txt",
-		ExcludeIfPresent:   ".lock",
-		UseRegex:           true,
-		MaxAge:             "7d",
-		MinAge:             "1d",
-		MaxDepth:           &maxDepth,
-		DeleteExcluded:     true,
-		MaxDelete:          &maxDelete,
-		Immutable:          true,
-		ConflictResolution: "newer",
-		DryRun:             true,
-		MaxTransfer:        "1G",
-		MaxDeleteSize:      "1G",
-		Suffix:             ".bak",
+		Name:                "full",
+		From:                "a:",
+		To:                  "b:",
+		IncludedPaths:       []string{"x", "y"},
+		ExcludedPaths:       []string{"z"},
+		Bandwidth:           100,
+		Parallel:            4,
+		BackupPath:          "/back",
+		CachePath:           "/cache",
+		MinSize:             "1k",
+		MaxSize:             "1G",
+		FilterFromFile:      "filter.txt",
+		ExcludeIfPresent:    ".lock",
+		UseRegex:            true,
+		MaxAge:              "7d",
+		MinAge:              "1d",
+		MaxDepth:            &maxDepth,
+		DeleteExcluded:      true,
+		MaxDelete:           &maxDelete,
+		Immutable:           true,
+		ConflictResolution:  "newer",
+		DryRun:              true,
+		MaxTransfer:         "1G",
+		MaxDeleteSize:       "1G",
+		Suffix:              ".bak",
 		SuffixKeepExtension: true,
-		MultiThreadStreams: &multiThread,
-		BufferSize:         "16M",
-		Retries:            &retries,
-		LowLevelRetries:    &retries,
-		MaxDuration:        "1h",
-		CheckFirst:         true,
-		OrderBy:            "name",
-		RetriesSleep:       "5s",
-		TpsLimit:           &tpsLimit,
-		ConnTimeout:        "30s",
-		IoTimeout:          "1h",
-		SizeOnly:           true,
-		UpdateMode:         true,
-		IgnoreExisting:     true,
-		DeleteTiming:       "after",
-		Resilient:          true,
-		MaxLock:            "5s",
-		CheckAccess:        true,
-		ConflictLoser:      "older",
-		ConflictSuffix:     ".conflict",
-		FastList:           true,
+		MultiThreadStreams:  &multiThread,
+		BufferSize:          "16M",
+		Retries:             &retries,
+		LowLevelRetries:     &retries,
+		MaxDuration:         "1h",
+		CheckFirst:          true,
+		OrderBy:             "name",
+		RetriesSleep:        "5s",
+		TpsLimit:            &tpsLimit,
+		ConnTimeout:         "30s",
+		IoTimeout:           "1h",
+		SizeOnly:            true,
+		UpdateMode:          true,
+		IgnoreExisting:      true,
+		DeleteTiming:        "after",
+		Resilient:           true,
+		MaxLock:             "5s",
+		CheckAccess:         true,
+		ConflictLoser:       "older",
+		ConflictSuffix:      ".conflict",
+		FastList:            true,
 	}
 	if err := s.Profiles().Save(ctx, p); err != nil {
 		t.Fatal(err)
@@ -536,9 +536,9 @@ func TestHistoryRepo_Pagination(t *testing.T) {
 	ctx := context.Background()
 	for i := 0; i < 5; i++ {
 		_ = s.History().Save(ctx, &HistoryEntry{
-			ID: "h" + string(rune('0'+i)),
+			ID:          "h" + string(rune('0'+i)),
 			ProfileName: "p",
-			StartedAt: "2026-01-01T00:00:00Z",
+			StartedAt:   "2026-01-01T00:00:00Z",
 		})
 	}
 	page1, _ := s.History().List(ctx, 2, 0)
@@ -625,7 +625,7 @@ func TestFlowRepo_SaveGetListDelete(t *testing.T) {
 		ID: "f1", Name: "Flow 1", ScheduleCron: "0 * * * *", Enabled: true,
 		Operations: []Operation{
 			{
-				ID: "op1", SourceRemote: "gdrive", SourcePath: "/docs",
+				ID: "op1", SourceRemote: "dropbox", SourcePath: "/docs",
 				TargetRemote: "", TargetPath: "/tmp/out", Action: "push",
 			},
 		},
@@ -647,7 +647,7 @@ func TestFlowRepo_SaveGetListDelete(t *testing.T) {
 	if len(got.Operations) != 1 {
 		t.Fatalf("Operations = %d, want 1", len(got.Operations))
 	}
-	if got.Operations[0].SourceRemote != "gdrive" {
+	if got.Operations[0].SourceRemote != "dropbox" {
 		t.Errorf("SourceRemote = %q", got.Operations[0].SourceRemote)
 	}
 
@@ -704,7 +704,7 @@ func TestFlowRepo_Save_NormalizesLegacyPullAction(t *testing.T) {
 		ID: "f-pull", Name: "Legacy pull flow",
 		Operations: []Operation{{
 			ID: "op1", SourceRemote: "local", SourcePath: "/a",
-			TargetRemote: "gdrive", TargetPath: "/b",
+			TargetRemote: "dropbox", TargetPath: "/b",
 			// Legacy pull in sync_config only — Save must promote + coerce to push.
 			SyncConfig: json.RawMessage(`{"action":"pull","dry_run":true}`),
 		}},
@@ -770,14 +770,14 @@ func TestDeltaRepo_GetStateRecordFullSync(t *testing.T) {
 		t.Errorf("err = %v, want ErrNotFound", err)
 	}
 
-	if err := s.Deltas().RecordFullSync(ctx, "remote1", "drive"); err != nil {
+	if err := s.Deltas().RecordFullSync(ctx, "remote1", "dropbox"); err != nil {
 		t.Fatal(err)
 	}
 	d, err := s.Deltas().GetState(ctx, "remote1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Provider != "drive" {
+	if d.Provider != "dropbox" {
 		t.Errorf("Provider = %q", d.Provider)
 	}
 	if d.LastFullSync == "" {
@@ -788,7 +788,7 @@ func TestDeltaRepo_GetStateRecordFullSync(t *testing.T) {
 	}
 
 	// Update.
-	if err := s.Deltas().RecordFullSync(ctx, "remote1", "drive"); err != nil {
+	if err := s.Deltas().RecordFullSync(ctx, "remote1", "dropbox"); err != nil {
 		t.Fatal(err)
 	}
 	d, _ = s.Deltas().GetState(ctx, "remote1")
@@ -1120,7 +1120,7 @@ func TestScanHistoryRows_ScanError(t *testing.T) {
 // errRowsScanner is a rowsScanner that always errors on Scan.
 type errRowsScanner struct{ err error }
 
-func (e errRowsScanner) Next() bool            { return true }
+func (e errRowsScanner) Next() bool             { return true }
 func (e errRowsScanner) Scan(dest ...any) error { return e.err }
 func (e errRowsScanner) Err() error             { return nil }
 
@@ -1334,7 +1334,7 @@ func TestDeltaRepo_GetState_NotFound(t *testing.T) {
 
 func TestDeltaRepo_RecordFullSync(t *testing.T) {
 	s := newTestStore(t)
-	if err := s.Deltas().RecordFullSync(context.Background(), "remote:path", "drive"); err != nil {
+	if err := s.Deltas().RecordFullSync(context.Background(), "remote:path", "dropbox"); err != nil {
 		t.Fatal(err)
 	}
 	state, err := s.Deltas().GetState(context.Background(), "remote:path")
@@ -1349,7 +1349,7 @@ func TestDeltaRepo_RecordFullSync(t *testing.T) {
 func TestDeltaRepo_RecordFullSync_Update(t *testing.T) {
 	s := newTestStore(t)
 	for i := 0; i < 3; i++ {
-		if err := s.Deltas().RecordFullSync(context.Background(), "r1", "drive"); err != nil {
+		if err := s.Deltas().RecordFullSync(context.Background(), "r1", "dropbox"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1596,7 +1596,7 @@ func TestDeltaRepo_RecordFullSync_DBError(t *testing.T) {
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Deltas().RecordFullSync(context.Background(), "x", "drive"); err == nil {
+	if err := s.Deltas().RecordFullSync(context.Background(), "x", "dropbox"); err == nil {
 		t.Error("expected error from closed DB")
 	}
 }

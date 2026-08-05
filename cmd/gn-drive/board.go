@@ -18,12 +18,18 @@ func newBoardCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "board [board-id]",
-		Short: "Execute a board DAG",
-		Long: `Execute all edges in a board DAG in topological order.
+		Short: "Execute a board DAG (legacy CLI)",
+		// Legacy: workspace product surface is flows+remotes only; boards stay
+		// CLI-only for existing SQLite board rows. Prefer `gn-drive sync` / flows UI.
+		Deprecated: "boards are not part of the web workspace; prefer flows",
+		Long: `LEGACY CLI: execute a board DAG stored in SQLite.
+
+Not exposed in the web workspace (flows + remotes only). Kept so existing
+board rows remain runnable without a destructive migration.
 
 Each edge is a sync between two nodes (source → target). Nodes without
-incoming edges run first (sources). Edges at the same topological layer
-run sequentially in deterministic order so output is reproducible.
+incoming edges run first. Edges in the same topological layer run
+sequentially for reproducible output.
 
 Examples:
   gn-drive board my-daily-backup

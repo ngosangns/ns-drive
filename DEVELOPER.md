@@ -53,7 +53,7 @@ flowchart TB
 
 ## Requirements
 
-- Go **1.25+**
+- Go **1.26.5+**
 - **pnpm** 9+ (frontend)
 - **rclone** on `PATH` for real sync
 - Optional: [Task](https://taskfile.dev), [air](https://github.com/air-verse/air) for hot reload

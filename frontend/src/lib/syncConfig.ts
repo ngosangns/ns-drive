@@ -1,6 +1,7 @@
 /**
- * Wails SyncConfig — stored in Operation.sync_config (JSON).
- * Supports both camelCase (Wails) and snake_case keys on read.
+ * Operation.sync_config JSON shape for flow runs.
+ * Backend maps this via flowengine.ProfileFromSyncConfig (snake_case or camelCase keys)
+ * then syncengine → rclone flags. Keep keys aligned with that single mapping path.
  */
 import { normalizeFlowAction, type FlowAction } from '@/constants/forms'
 

@@ -626,7 +626,7 @@ func TestRemoteHandlers_CRUD(t *testing.T) {
 		t.Errorf("list: status = %d", rr.Code)
 	}
 	rr = doRequest(srv, "POST", "/api/v1/remotes", map[string]any{
-		"name": "r1", "type": "drive",
+		"name": "r1", "type": "dropbox",
 	}, "")
 	if rr.Code != 200 && rr.Code != 500 && rr.Code != 503 && rr.Code != 201 {
 		t.Errorf("create: status = %d", rr.Code)

@@ -9,45 +9,86 @@ import (
 
 // Opener opens URLs in the system default browser.
 type Opener struct {
-	// Override for testing; if nil, uses runtime.GOOS.
+	// GOOS overrides runtime.GOOS (tests).
 	GOOS func() string
+	// LookPath finds an executable on PATH. If nil, uses exec.LookPath.
+	LookPath func(file string) (string, error)
+	// Start runs the opener binary. If nil, uses defaultStart (exec.Command
+	// Start without Wait). Tests inject a no-op to avoid opening real tabs.
+	Start func(name string, arg ...string) error
 }
 
-// New creates a new Opener.
+// New creates a production Opener (system browser).
 func New() *Opener { return &Opener{} }
+
+// Noop returns an Opener that never spawns a process.
+// Use in CLI/unit tests so foreground run paths stay hermetic.
+func Noop() *Opener {
+	return &Opener{
+		Start: func(name string, arg ...string) error { return nil },
+	}
+}
 
 // Open opens url in the system default browser.
 // Best-effort: errors are returned but not fatal — the user can always
 // copy the URL from stdout.
 func (o *Opener) Open(url string) error {
 	goos := runtime.GOOS
-	if o.GOOS != nil {
+	if o != nil && o.GOOS != nil {
 		goos = o.GOOS()
 	}
-
-	var cmd *exec.Cmd
-	switch goos {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "linux":
-		// Prefer xdg-open; fall back to gio, sensible-browser, wslview.
-		if _, err := exec.LookPath("xdg-open"); err == nil {
-			cmd = exec.Command("xdg-open", url)
-		} else if _, err := exec.LookPath("gio"); err == nil {
-			cmd = exec.Command("gio", "open", url)
-		} else if _, err := exec.LookPath("sensible-browser"); err == nil {
-			cmd = exec.Command("sensible-browser", url)
-		} else {
-			return fmt.Errorf("browser: no opener found (install xdg-open, gio, or sensible-browser)")
-		}
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		return fmt.Errorf("browser: unsupported platform %q", goos)
+	lookPath := exec.LookPath
+	if o != nil && o.LookPath != nil {
+		lookPath = o.LookPath
+	}
+	start := defaultStart
+	if o != nil && o.Start != nil {
+		start = o.Start
 	}
 
-	if err := cmd.Start(); err != nil {
+	name, args, err := resolveCommand(goos, lookPath, url)
+	if err != nil {
+		return err
+	}
+	if err := start(name, args...); err != nil {
 		return fmt.Errorf("browser: start: %w", err)
+	}
+	return nil
+}
+
+// resolveCommand selects the platform opener binary and args.
+// lookPath is only consulted on linux (xdg-open / gio / sensible-browser).
+// Pure aside from the injected lookPath — unit tests pass a fake lookPath
+// and never touch the host PATH.
+func resolveCommand(goos string, lookPath func(string) (string, error), url string) (name string, args []string, err error) {
+	switch goos {
+	case "darwin":
+		return "open", []string{url}, nil
+	case "linux":
+		if lookPath == nil {
+			lookPath = exec.LookPath
+		}
+		if _, e := lookPath("xdg-open"); e == nil {
+			return "xdg-open", []string{url}, nil
+		}
+		if _, e := lookPath("gio"); e == nil {
+			return "gio", []string{"open", url}, nil
+		}
+		if _, e := lookPath("sensible-browser"); e == nil {
+			return "sensible-browser", []string{url}, nil
+		}
+		return "", nil, fmt.Errorf("browser: no opener found (install xdg-open, gio, or sensible-browser)")
+	case "windows":
+		return "rundll32", []string{"url.dll,FileProtocolHandler", url}, nil
+	default:
+		return "", nil, fmt.Errorf("browser: unsupported platform %q", goos)
+	}
+}
+
+func defaultStart(name string, arg ...string) error {
+	cmd := exec.Command(name, arg...)
+	if err := cmd.Start(); err != nil {
+		return err
 	}
 	// Don't wait — the child process is independent.
 	go func() { _ = cmd.Wait() }()

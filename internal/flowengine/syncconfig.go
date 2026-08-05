@@ -8,8 +8,16 @@ import (
 	"github.com/gnasdev/gn-drive/internal/store"
 )
 
+// ProfileFromSyncConfig is the single flow-run flag path: Operation.sync_config
+// JSON (snake_case or camelCase keys, same as frontend lib/syncConfig.ts) maps
+// onto store.Profile, which syncengine turns into rclone.ProfileFlags.
+// Profile columns used only as a flag DTO for flow path — not as workspace unit.
+func ProfileFromSyncConfig(raw json.RawMessage) *store.Profile {
+	return profileFromSyncConfig(raw)
+}
+
 // profileFromSyncConfig maps a flow Operation.sync_config JSON bag onto a
-// store.Profile used as the flag carrier for StartPathSync (Wails SyncConfig).
+// store.Profile used as the flag carrier for StartPathSync.
 func profileFromSyncConfig(raw json.RawMessage) *store.Profile {
 	p := &store.Profile{Parallel: 4}
 	if len(raw) == 0 {

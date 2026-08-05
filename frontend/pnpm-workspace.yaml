@@ -1,14 +1,17 @@
+# pnpm workspace + project settings (pnpm v11+ reads these here, not package.json#pnpm).
+# Explicit allowlist for packages that may run install scripts (pnpm 11).
 allowBuilds:
-  esbuild: set this to true or false
-  puppeteer: set this to true or false
-  vue-demi: set this to true or false
-# pnpm workspace settings.
-# Approve build scripts for these deps so `pnpm install` does not abort with
-# ERR_PNPM_IGNORED_BUILDS (esbuild/vue-demi run native postinstall steps).
-onlyBuiltDependencies:
-  - esbuild
-  - vue-demi
-# Don't run an implicit `pnpm install` before every `pnpm run` script; that
-# implicit install aborts on the ignored-builds error above and would kill
-# `pnpm run build` / `build:watch` in the dev workflow.
+  esbuild: true
+  vue-demi: true
+  puppeteer: true
+
+# Don't run an implicit `pnpm install` before every `pnpm run` script.
 verifyDepsBeforeRun: false
+
+# Force patched transitive versions for Dependabot / npm audit findings.
+# Upper bounds avoid accidental major jumps on re-resolve.
+overrides:
+  postcss: ">=8.5.23 <9"
+  fast-uri: ">=3.1.5 <5"
+  "brace-expansion@>=2.0.0 <2.1.4": "2.1.4"
+  "brace-expansion@>=4.0.0 <5.0.9": "5.0.9"

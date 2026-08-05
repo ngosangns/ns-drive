@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/gnasdev/gn-drive/internal/app"
+	"github.com/gnasdev/gn-drive/internal/browser"
 	"github.com/gnasdev/gn-drive/internal/logging"
 	"github.com/gnasdev/gn-drive/internal/rclone"
 	"github.com/gnasdev/gn-drive/internal/service"
@@ -1574,7 +1575,7 @@ func TestNewRemoteAddCmd_RunE(t *testing.T) {
 	cmd.SetErr(&buf)
 	cmd.SetArgs([]string{
 		"--name", "myremote",
-		"--type", "drive",
+		"--type", "dropbox",
 		"--config", "key=val",
 	})
 	cmd.SilenceUsage = true
@@ -1904,6 +1905,8 @@ func makeRunDeps(t *testing.T) (runDeps, *fakeLocker, *app.App, chan os.Signal) 
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = a.Close() })
+	// Hermetic: foreground run must not open a real browser tab.
+	a.Browser = browser.Noop()
 	addr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	ln := &fakeNetListener{addr: addr}
 	signalCh := make(chan os.Signal, 1)
@@ -2595,164 +2598,42 @@ func TestNewRunCmd_HelpFlag(t *testing.T) {
 	}
 }
 
-// TestBoardCmd_AppNewError covers the app.New error branch in newBoardCmd's
-// RunE by overriding appNewFn.
-func TestBoardCmd_AppNewError(t *testing.T) {
+// TestCmds_AppNewError covers app.New failure for every subcommand that
+// uses appNewFn. One table instead of N copy-paste tests.
+func TestCmds_AppNewError(t *testing.T) {
 	orig := appNewFn
-	defer func() { appNewFn = orig }()
+	t.Cleanup(func() { appNewFn = orig })
 	appNewFn = func(ctx context.Context, opts app.Options) (*app.App, error) {
 		return nil, errors.New("simulated app.New failure")
 	}
 
-	cmd := newBoardCmd()
-	cmd.SetArgs([]string{"some-board"})
-	cmd.SilenceUsage = true
-	if err := cmd.Execute(); err == nil {
-		t.Error("expected error from app.New failure")
+	cases := []struct {
+		name string
+		cmd  func() *cobra.Command
+		args []string
+	}{
+		{"board", newBoardCmd, []string{"some-board"}},
+		{"doctor", newDoctorCmd, nil},
+		{"profile list", newProfileListCmd, nil},
+		{"profile add", newProfileAddCmd, []string{"--name", "n", "--from", "/a", "--to", "/b"}},
+		{"profile delete", newProfileDeleteCmd, []string{"name"}},
+		{"remote list", newRemoteListCmd, nil},
+		{"remote add", newRemoteAddCmd, []string{"--name", "r1", "--type", "dropbox"}},
+		{"remote test", newRemoteTestCmd, []string{"name"}},
+		{"remote delete", newRemoteDeleteCmd, []string{"name"}},
+		{"sync", newSyncCmd, []string{"push", "--profile", "p1"}},
 	}
-}
-
-// TestDoctorCmd_AppNewError covers the app.New error branch in newDoctorCmd.
-func TestDoctorCmd_AppNewError(t *testing.T) {
-	orig := appNewFn
-	defer func() { appNewFn = orig }()
-	appNewFn = func(ctx context.Context, opts app.Options) (*app.App, error) {
-		return nil, errors.New("simulated app.New failure")
-	}
-
-	cmd := newDoctorCmd()
-	cmd.SetArgs([]string{})
-	cmd.SilenceUsage = true
-	if err := cmd.Execute(); err == nil {
-		t.Error("expected error from app.New failure")
-	}
-}
-
-// TestProfileCmd_AppNewError covers the app.New error branch in newProfileListCmd.
-func TestProfileCmd_AppNewError(t *testing.T) {
-	orig := appNewFn
-	defer func() { appNewFn = orig }()
-	appNewFn = func(ctx context.Context, opts app.Options) (*app.App, error) {
-		return nil, errors.New("simulated app.New failure")
-	}
-
-	cmd := newProfileListCmd()
-	cmd.SetArgs([]string{})
-	cmd.SilenceUsage = true
-	if err := cmd.Execute(); err == nil {
-		t.Error("expected error from app.New failure")
-	}
-}
-
-// TestProfileAddCmd_AppNewError covers the app.New error branch in newProfileAddCmd.
-func TestProfileAddCmd_AppNewError(t *testing.T) {
-	orig := appNewFn
-	defer func() { appNewFn = orig }()
-	appNewFn = func(ctx context.Context, opts app.Options) (*app.App, error) {
-		return nil, errors.New("simulated app.New failure")
-	}
-
-	cmd := newProfileAddCmd()
-	cmd.SetArgs([]string{"name", "--from", "/a", "--to", "/b"})
-	cmd.SilenceUsage = true
-	if err := cmd.Execute(); err == nil {
-		t.Error("expected error from app.New failure")
-	}
-}
-
-// TestProfileDeleteCmd_AppNewError covers the app.New error branch in newProfileDeleteCmd.
-func TestProfileDeleteCmd_AppNewError(t *testing.T) {
-	orig := appNewFn
-	defer func() { appNewFn = orig }()
-	appNewFn = func(ctx context.Context, opts app.Options) (*app.App, error) {
-		return nil, errors.New("simulated app.New failure")
-	}
-
-	cmd := newProfileDeleteCmd()
-	cmd.SetArgs([]string{"name"})
-	cmd.SilenceUsage = true
-	if err := cmd.Execute(); err == nil {
-		t.Error("expected error from app.New failure")
-	}
-}
-
-// TestRemoteListCmd_AppNewError covers the app.New error branch in newRemoteListCmd.
-func TestRemoteListCmd_AppNewError(t *testing.T) {
-	orig := appNewFn
-	defer func() { appNewFn = orig }()
-	appNewFn = func(ctx context.Context, opts app.Options) (*app.App, error) {
-		return nil, errors.New("simulated app.New failure")
-	}
-
-	cmd := newRemoteListCmd()
-	cmd.SetArgs([]string{})
-	cmd.SilenceUsage = true
-	if err := cmd.Execute(); err == nil {
-		t.Error("expected error from app.New failure")
-	}
-}
-
-// TestRemoteAddCmd_AppNewError covers the app.New error branch in newRemoteAddCmd.
-func TestRemoteAddCmd_AppNewError(t *testing.T) {
-	orig := appNewFn
-	defer func() { appNewFn = orig }()
-	appNewFn = func(ctx context.Context, opts app.Options) (*app.App, error) {
-		return nil, errors.New("simulated app.New failure")
-	}
-
-	cmd := newRemoteAddCmd()
-	cmd.SetArgs([]string{"name", "type"})
-	cmd.SilenceUsage = true
-	if err := cmd.Execute(); err == nil {
-		t.Error("expected error from app.New failure")
-	}
-}
-
-// TestRemoteTestCmd_AppNewError covers the app.New error branch in newRemoteTestCmd.
-func TestRemoteTestCmd_AppNewError(t *testing.T) {
-	orig := appNewFn
-	defer func() { appNewFn = orig }()
-	appNewFn = func(ctx context.Context, opts app.Options) (*app.App, error) {
-		return nil, errors.New("simulated app.New failure")
-	}
-
-	cmd := newRemoteTestCmd()
-	cmd.SetArgs([]string{"name"})
-	cmd.SilenceUsage = true
-	if err := cmd.Execute(); err == nil {
-		t.Error("expected error from app.New failure")
-	}
-}
-
-// TestRemoteDeleteCmd_AppNewError covers the app.New error branch in newRemoteDeleteCmd.
-func TestRemoteDeleteCmd_AppNewError(t *testing.T) {
-	orig := appNewFn
-	defer func() { appNewFn = orig }()
-	appNewFn = func(ctx context.Context, opts app.Options) (*app.App, error) {
-		return nil, errors.New("simulated app.New failure")
-	}
-
-	cmd := newRemoteDeleteCmd()
-	cmd.SetArgs([]string{"name"})
-	cmd.SilenceUsage = true
-	if err := cmd.Execute(); err == nil {
-		t.Error("expected error from app.New failure")
-	}
-}
-
-// TestSyncCmd_AppNewError covers the app.New error branch in newSyncCmd.
-func TestSyncCmd_AppNewError(t *testing.T) {
-	orig := appNewFn
-	defer func() { appNewFn = orig }()
-	appNewFn = func(ctx context.Context, opts app.Options) (*app.App, error) {
-		return nil, errors.New("simulated app.New failure")
-	}
-
-	cmd := newSyncCmd()
-	cmd.SetArgs([]string{"--profile", "p1", "--action", "push"})
-	cmd.SilenceUsage = true
-	if err := cmd.Execute(); err == nil {
-		t.Error("expected error from app.New failure")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := tc.cmd()
+			cmd.SetArgs(tc.args)
+			cmd.SilenceUsage = true
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			if err := cmd.Execute(); err == nil {
+				t.Error("expected error from app.New failure")
+			}
+		})
 	}
 }
 
@@ -2787,21 +2668,6 @@ func TestSyncCmd_DryRun(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Error("expected error from missing profile")
-	}
-}
-
-// TestUpdateCmd_AppNewError covers the app.New error branch in newUpdateCmd.
-func TestUpdateCmd_AppNewError(t *testing.T) {
-	orig := appNewFn
-	defer func() { appNewFn = orig }()
-	appNewFn = func(ctx context.Context, opts app.Options) (*app.App, error) {
-		return nil, errors.New("simulated app.New failure")
-	}
-
-	cmd := newUpdateCmd()
-	cmd.SilenceUsage = true
-	if err := cmd.Execute(); err == nil {
-		t.Error("expected error from app.New failure")
 	}
 }
 

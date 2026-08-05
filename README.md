@@ -21,7 +21,7 @@ Local-only sync engine and web UI for cloud storage, powered by [rclone](https:/
 
 | Component | Technology |
 |-----------|------------|
-| Backend | Go 1.25 — `cmd/gn-drive` |
+| Backend | Go 1.26.5 — `cmd/gn-drive` |
 | Frontend | Vue 3.5 + Vite 6 + TypeScript + Tailwind 4 + Pinia |
 | HTTP | `chi` + Server-Sent Events |
 | Database | SQLite (`modernc.org/sqlite`, pure Go) |
@@ -49,7 +49,7 @@ task build
 #   go build -o bin/gn-drive ./cmd/gn-drive
 ```
 
-Requires: Go 1.25+, pnpm, rclone on `PATH` at runtime.
+Requires: Go 1.26.5+, pnpm 11+, rclone on `PATH` at runtime.
 
 ## Usage
 

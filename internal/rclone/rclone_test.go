@@ -372,9 +372,9 @@ func TestAbout_RunFailure(t *testing.T) {
 
 func TestParseInt(t *testing.T) {
 	tests := []struct {
-		s        string
-		wantN    int64
-		wantOK   bool
+		s      string
+		wantN  int64
+		wantOK bool
 	}{
 		{"abc 123", 123, true},
 		{"abc 0", 0, true},
@@ -398,7 +398,7 @@ func TestParseSize(t *testing.T) {
 	}{
 		{"", 0},
 		{"0", 0},
-		{"abc", 0},   // empty numStr
+		{"abc", 0}, // empty numStr
 		{"1k", 1024},
 		{"1kb", 1024},
 		{"1m", 1024 * 1024},
@@ -434,7 +434,7 @@ func TestParseFraction(t *testing.T) {
 func TestCreateRemote(t *testing.T) {
 	bin := newFakeRclone(t)
 	c, _ := New(Options{BinaryPath: bin, Logger: noopLogger()})
-	if err := c.CreateRemote(context.Background(), "r1", "drive", []string{"key=val", "other=thing"}); err != nil {
+	if err := c.CreateRemote(context.Background(), "r1", "dropbox", []string{"key=val", "other=thing"}); err != nil {
 		t.Fatal(err)
 	}
 }
