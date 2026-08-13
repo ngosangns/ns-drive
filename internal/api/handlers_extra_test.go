@@ -120,6 +120,34 @@ func TestHandleCreateRemote_Success(t *testing.T) {
 	}
 }
 
+// TestHandleCreateRemote_AuthFailed covers create-then-test rollback.
+func TestHandleCreateRemote_AuthFailed(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "rclone-auth-fail")
+	script := `#!/bin/sh
+for a in "$@"; do
+  if [ "$a" = "lsd" ]; then
+    echo "unauthorized" 1>&2
+    exit 1
+  fi
+done
+exit 0
+`
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srv, cleanup := newTestServerWithRclone(t, bin)
+	defer cleanup()
+	body := map[string]any{"name": "gdrive", "type": "drive", "config": []string{}}
+	rr := doRequest(srv, "POST", "/api/v1/remotes", body, "")
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "auth_failed") && !strings.Contains(rr.Body.String(), "auth failed") {
+		t.Errorf("body = %s, want auth_failed", rr.Body.String())
+	}
+}
+
 // TestHandleDeleteRemote_Success covers the success branch of handleDeleteRemote.
 func TestHandleDeleteRemote_Success(t *testing.T) {
 	bin := writeFakeRclone(t)
@@ -555,7 +583,6 @@ func TestGenerateToken_Extra(t *testing.T) {
 	}
 }
 
-
 // TestHandleUnlock_TokenError covers the generateTokenRand error branch
 // in handleUnlock.
 func TestHandleUnlock_TokenError(t *testing.T) {
@@ -691,4 +718,66 @@ func TestMakeSSEHandler_MarshalError_Extra(t *testing.T) {
 
 	h := makeSSEHandler(w, flusher, "test-topic", log)
 	h(eventbus.AuthUnlockedEvent{})
+}
+
+func TestHandleRuntime_Empty(t *testing.T) {
+	srv, cleanup := newTestServer(t)
+	defer cleanup()
+	rr := doRequest(srv, "GET", "/api/v1/runtime", nil, "")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", rr.Code, rr.Body.String())
+	}
+	var snap eventbus.RuntimeSnapshotEvent
+	if err := json.Unmarshal(rr.Body.Bytes(), &snap); err != nil {
+		t.Fatal(err)
+	}
+	if snap.Flows == nil {
+		t.Fatal("flows should be empty slice, not null")
+	}
+}
+
+func TestHandleRuntime_AfterFlowEvent(t *testing.T) {
+	srv, cleanup := newTestServer(t)
+	defer cleanup()
+	srv.app.Bus.Publish(eventbus.TopicFlowExecution, eventbus.FlowExecutionEvent{
+		FlowID: "flow-a", Status: "running",
+	})
+	deadline := time.Now().Add(2 * time.Second)
+	var snap eventbus.RuntimeSnapshotEvent
+	for time.Now().Before(deadline) {
+		rr := doRequest(srv, "GET", "/api/v1/runtime", nil, "")
+		if rr.Code != http.StatusOK {
+			t.Fatalf("status = %d", rr.Code)
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &snap); err != nil {
+			t.Fatal(err)
+		}
+		if snap.Revision > 0 && len(snap.Flows) == 1 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if len(snap.Flows) != 1 || snap.Flows[0].ID != "flow-a" || snap.Flows[0].Status != "running" {
+		t.Fatalf("snapshot = %+v", snap)
+	}
+}
+
+func TestSSE_FirstEventIsRuntimeSnapshot(t *testing.T) {
+	srv, cleanup := newTestServer(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	req := httptest.NewRequest("GET", "/api/v1/events", nil).WithContext(ctx)
+	rr := httptest.NewRecorder()
+	srv.router.ServeHTTP(rr, req)
+	body := rr.Body.String()
+	if !strings.Contains(body, "event: runtime:snapshot") {
+		t.Fatalf("expected runtime:snapshot first, got %q", body)
+	}
+	idxSnap := strings.Index(body, "event: runtime:snapshot")
+	idxHeart := strings.Index(body, ": heartbeat")
+	if idxHeart >= 0 && idxHeart < idxSnap {
+		t.Fatalf("heartbeat before snapshot: %q", body)
+	}
 }

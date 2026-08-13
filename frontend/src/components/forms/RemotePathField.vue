@@ -184,16 +184,16 @@ const pathInputId = computed(() =>
   <div class="flex w-full flex-col gap-2">
     <div v-if="label" class="text-[11px] font-bold uppercase tracking-wide text-text-muted">{{ label }}</div>
 
-    <!-- Neo segmented control: Local | Remote -->
+    <!-- Segmented control: Local | Remote -->
     <div
-      class="inline-flex w-fit border-2 border-border bg-bg shadow-[var(--shadow-neo-sm)]"
+      class="inline-flex w-fit overflow-hidden rounded-md border border-border bg-bg"
       role="group"
       :aria-label="t('pathField.modeGroup')"
     >
       <button
         type="button"
         :class="cn(
-          'min-w-[5.5rem] border-r-2 border-border px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-all duration-100',
+          'min-w-[5.5rem] border-r border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors duration-150',
           mode === 'local'
             ? 'bg-accent text-text'
             : 'bg-bg text-text-muted hover:bg-surface-hover hover:text-text',
@@ -208,7 +208,7 @@ const pathInputId = computed(() =>
       <button
         type="button"
         :class="cn(
-          'min-w-[5.5rem] px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-all duration-100',
+          'min-w-[5.5rem] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors duration-150',
           mode === 'remote'
             ? 'bg-accent text-text'
             : 'bg-bg text-text-muted hover:bg-surface-hover hover:text-text',
@@ -222,12 +222,12 @@ const pathInputId = computed(() =>
       </button>
     </div>
 
-    <div class="flex flex-wrap items-center gap-1.5">
+    <div class="flex min-w-0 items-center gap-1.5">
       <select
         v-if="mode === 'remote'"
         v-model="remoteName"
         :data-testid="remoteSelectId"
-        class="field-input max-w-[200px] min-w-[140px]"
+        class="field-input w-[min(11rem,38%)] shrink-0"
         :disabled="disabled"
         @change="emitValue"
       >
@@ -242,13 +242,13 @@ const pathInputId = computed(() =>
         :placeholder="mode === 'local' ? t('pathField.absolutePlaceholder') : t('pathField.folderPlaceholder')"
         :required="required"
         :disabled="disabled"
-        class="field-input min-w-[160px] flex-1"
+        class="field-input min-w-0 flex-1"
         @change="emitValue"
         @input="emitValue"
       />
       <button
         type="button"
-        class="btn-secondary whitespace-nowrap !px-2.5 !py-1.5 !text-xs"
+        class="btn-secondary shrink-0 whitespace-nowrap !px-2.5 !py-1.5 !text-xs"
         :disabled="disabled || !canBrowse"
         :data-testid="`${testId}-browse`"
         :title="t('common.browse')"
@@ -261,7 +261,7 @@ const pathInputId = computed(() =>
 
     <div
       v-if="showBrowse"
-      class="mt-0.5 border-2 border-border bg-bg p-2.5 shadow-[var(--shadow-neo-sm)]"
+      class="mt-0.5 rounded-md border border-border bg-bg p-2.5"
       :data-testid="`${testId}-browse-panel`"
     >
       <div class="mb-2 flex flex-wrap items-center gap-2">
@@ -273,7 +273,7 @@ const pathInputId = computed(() =>
         >
           <PhCaretUp :size="14" weight="bold" /> {{ t('common.up') }}
         </button>
-        <code class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap border-2 border-border bg-bg-secondary px-2 py-1 font-mono text-[11px]">
+        <code class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-border bg-bg-secondary px-2 py-1 font-mono text-[11px]">
           {{ browseCursor }}
         </code>
         <button
@@ -291,7 +291,7 @@ const pathInputId = computed(() =>
       </div>
       <p v-if="browseError" class="m-0 mb-1.5 text-xs font-bold text-danger">{{ browseError }}</p>
       <p v-else-if="browseBusy" class="m-0 text-xs text-text-dim">{{ t('common.loadingDots') }}</p>
-      <div v-else class="flex max-h-[180px] flex-col gap-0 overflow-auto border-2 border-border">
+      <div v-else class="flex max-h-[180px] flex-col gap-0 overflow-auto rounded-md border border-border">
         <button
           v-for="e in browseEntries"
           :key="e.path || e.name"

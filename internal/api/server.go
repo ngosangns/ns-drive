@@ -21,6 +21,7 @@ import (
 	"github.com/gnasdev/gn-drive/internal/eventbus"
 	"github.com/gnasdev/gn-drive/internal/flowengine"
 	"github.com/gnasdev/gn-drive/internal/rclone"
+	"github.com/gnasdev/gn-drive/internal/runtimehub"
 	"github.com/gnasdev/gn-drive/internal/service"
 	"github.com/gnasdev/gn-drive/internal/store"
 	"github.com/gnasdev/gn-drive/internal/syncengine"
@@ -36,14 +37,15 @@ type Server struct {
 
 // AppDeps holds the services the API needs. Passed in from app.App.
 type AppDeps struct {
-	Auth        *auth.Service
-	Store       *store.Store
-	Rclone      *rclone.Client
+	Auth       *auth.Service
+	Store      *store.Store
+	Rclone     *rclone.Client
 	SyncEngine *syncengine.Engine
 	FlowEngine *flowengine.Engine
-	Bus         *eventbus.Bus
-	WebUI       http.Handler
-	Service     *service.Writer // non-nil in service mode
+	Runtime    *runtimehub.Hub
+	Bus        *eventbus.Bus
+	WebUI      http.Handler
+	Service    *service.Writer // non-nil in service mode
 	// Version is the running binary version (shown in /status and used by self-update).
 	Version string
 	// AfterUnlock opens deferred data plane (store/rclone) after web unlock/setup.
@@ -80,6 +82,17 @@ func New(deps *AppDeps, log *slog.Logger) *Server {
 	// Mount subroutes
 	r.Mount("/api/v1", s.apiRouter())
 
+	if deps != nil && deps.Runtime == nil && deps.Bus != nil {
+		opts := runtimehub.Options{Bus: deps.Bus}
+		if deps.FlowEngine != nil {
+			opts.Flows = deps.FlowEngine
+		}
+		if deps.SyncEngine != nil {
+			opts.Tasks = deps.SyncEngine
+		}
+		deps.Runtime = runtimehub.New(opts)
+	}
+
 	return s
 }
 
@@ -94,6 +107,7 @@ func (s *Server) apiRouter() chi.Router {
 	r.Post("/auth/lock", s.handleLock)
 	r.Post("/auth/change-password", s.handleChangePassword)
 	r.Get("/events", s.handleSSE)
+	r.Get("/runtime", s.handleRuntime)
 
 	// Settings
 	r.Get("/settings", s.handleGetSettings)
@@ -230,9 +244,9 @@ func respondError(w http.ResponseWriter, status int, code, msg string) {
 	respondJSON(w, status, map[string]string{"error": msg, "code": code})
 }
 
-func respondOK(w http.ResponseWriter, v any)         { respondJSON(w, http.StatusOK, v) }
-func respondCreated(w http.ResponseWriter, v any)    { respondJSON(w, http.StatusCreated, v) }
-func respondNoContent(w http.ResponseWriter)         { w.WriteHeader(http.StatusNoContent) }
+func respondOK(w http.ResponseWriter, v any)      { respondJSON(w, http.StatusOK, v) }
+func respondCreated(w http.ResponseWriter, v any) { respondJSON(w, http.StatusCreated, v) }
+func respondNoContent(w http.ResponseWriter)      { w.WriteHeader(http.StatusNoContent) }
 
 func parseJSON(r *http.Request, v any) error {
 	return json.NewDecoder(r.Body).Decode(v)
@@ -353,10 +367,10 @@ func (s *SessionStore) Count() int {
 // to another.
 var sessionStore = NewSessionStore()
 
-func sessionValid(t string) bool   { return sessionStore.Valid(t) }
-func sessionAdd(t string)          { sessionStore.Add(t) }
-func sessionDelete(t string)       { sessionStore.Delete(t) }
-func sessionClearAll()             { sessionStore.Clear() }
+func sessionValid(t string) bool { return sessionStore.Valid(t) }
+func sessionAdd(t string)        { sessionStore.Add(t) }
+func sessionDelete(t string)     { sessionStore.Delete(t) }
+func sessionClearAll()           { sessionStore.Clear() }
 
 // silence unused
 var _ = context.Background

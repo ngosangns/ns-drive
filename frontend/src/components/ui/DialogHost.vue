@@ -17,7 +17,7 @@ const { state, accept, cancel } = useConfirmDialogState()
       data-testid="confirm-dialog"
       @click.self="cancel"
     >
-      <div class="w-full max-w-[420px] rounded-[10px] border border-border bg-surface p-6 shadow-lg">
+      <div class="w-full max-w-[420px] rounded-md border border-border bg-surface p-6 shadow-[var(--shadow-paper)]">
         <h3 class="m-0 mb-2 text-base font-semibold text-text">{{ state.title }}</h3>
         <p class="m-0 mb-5 text-[13px] leading-relaxed text-text-muted">{{ state.message }}</p>
         <div class="flex justify-end gap-2">

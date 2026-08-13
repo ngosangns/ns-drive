@@ -3,11 +3,13 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/gnasdev/gn-drive/internal/eventbus"
 	"github.com/gnasdev/gn-drive/internal/flowengine"
 	"github.com/gnasdev/gn-drive/internal/store"
 )
@@ -37,6 +39,10 @@ func (s *Server) handleListFlows(w http.ResponseWriter, r *http.Request) {
 }
 
 func flowWithStatus(f store.Flow, status string) map[string]any {
+	canvas := f.CanvasJSON
+	if len(canvas) == 0 {
+		canvas = []byte("{}")
+	}
 	return map[string]any{
 		"id":               f.ID,
 		"name":             f.Name,
@@ -47,6 +53,7 @@ func flowWithStatus(f store.Flow, status string) map[string]any {
 		"cron_expr":        f.CronExpr,
 		"sort_order":       f.SortOrder,
 		"operations":       f.Operations,
+		"canvas_json":      json.RawMessage(canvas),
 		"created_at":       f.CreatedAt,
 		"updated_at":       f.UpdatedAt,
 		"status":           status,
@@ -99,10 +106,12 @@ func (s *Server) handleCreateFlow(w http.ResponseWriter, r *http.Request) {
 	got, _ := s.app.Store.Flows().Get(ctx, f.ID)
 	if got != nil {
 		s.syncFlowCron(got)
+		s.publishStateChanged("flows", got.ID)
 		respondCreated(w, got)
 		return
 	}
 	s.syncFlowCron(&f)
+	s.publishStateChanged("flows", f.ID)
 	respondCreated(w, f)
 }
 
@@ -133,10 +142,12 @@ func (s *Server) handleUpdateFlow(w http.ResponseWriter, r *http.Request) {
 	got, err := s.app.Store.Flows().Get(ctx, f.ID)
 	if err != nil {
 		s.syncFlowCron(&f)
+		s.publishStateChanged("flows", f.ID)
 		respondOK(w, f)
 		return
 	}
 	s.syncFlowCron(got)
+	s.publishStateChanged("flows", got.ID)
 	respondOK(w, got)
 }
 
@@ -163,7 +174,21 @@ func (s *Server) handleDeleteFlow(w http.ResponseWriter, r *http.Request) {
 	if s.app.SyncEngine != nil {
 		s.app.SyncEngine.UnregisterFlowSchedule(id)
 	}
+	if s.app.Runtime != nil {
+		s.app.Runtime.Forget(id)
+	}
+	s.publishStateChanged("flows", id)
 	respondOK(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) publishStateChanged(domain, id string) {
+	if s.app == nil || s.app.Bus == nil {
+		return
+	}
+	s.app.Bus.Publish(eventbus.TopicStateChanged, eventbus.StateChangedEvent{
+		Domain: domain,
+		ID:     id,
+	})
 }
 
 // syncFlowCron updates the in-process cron entry for a flow after save.

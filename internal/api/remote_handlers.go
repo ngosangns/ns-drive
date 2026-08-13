@@ -3,10 +3,9 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
-
-	"github.com/gnasdev/gn-drive/internal/eventbus"
 )
 
 // handleListRemotes returns all rclone remotes.
@@ -24,9 +23,9 @@ func (s *Server) handleListRemotes(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCreateRemote(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req struct {
-		Name    string   `json:"name"`
-		Type    string   `json:"type"`
-		Config  []string `json:"config"` // ["key=value", ...]
+		Name   string   `json:"name"`
+		Type   string   `json:"type"`
+		Config []string `json:"config"` // ["key=value", ...]
 	}
 	if err := parseJSON(r, &req); err != nil {
 		respondError(w, http.StatusBadRequest, "bad_request", err.Error())
@@ -36,11 +35,17 @@ func (s *Server) handleCreateRemote(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "missing_fields", "name and type are required")
 		return
 	}
-	if err := s.app.Rclone.CreateRemote(ctx, req.Name, req.Type, req.Config); err != nil {
-		respondError(w, http.StatusInternalServerError, "create_error", err.Error())
+	if err := s.app.Rclone.CreateRemoteVerified(ctx, req.Name, req.Type, req.Config); err != nil {
+		code := "create_error"
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "auth failed") {
+			code = "auth_failed"
+			status = http.StatusServiceUnavailable
+		}
+		respondError(w, status, code, err.Error())
 		return
 	}
-	s.app.Bus.Publish(eventbus.TopicStateChanged, eventbus.StateChangedEvent{})
+	s.publishStateChanged("remotes", req.Name)
 	respondCreated(w, map[string]any{"name": req.Name, "type": req.Type})
 }
 
@@ -52,7 +57,7 @@ func (s *Server) handleDeleteRemote(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, "delete_error", err.Error())
 		return
 	}
-	s.app.Bus.Publish(eventbus.TopicStateChanged, eventbus.StateChangedEvent{})
+	s.publishStateChanged("remotes", name)
 	respondOK(w, map[string]bool{"ok": true})
 }
 

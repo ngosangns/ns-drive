@@ -19,6 +19,7 @@ import (
 	"github.com/gnasdev/gn-drive/internal/flowengine"
 	"github.com/gnasdev/gn-drive/internal/logging"
 	"github.com/gnasdev/gn-drive/internal/rclone"
+	"github.com/gnasdev/gn-drive/internal/runtimehub"
 	"github.com/gnasdev/gn-drive/internal/service"
 	"github.com/gnasdev/gn-drive/internal/store"
 	"github.com/gnasdev/gn-drive/internal/syncengine"
@@ -36,6 +37,7 @@ type App struct {
 	SyncEngine  *syncengine.Engine
 	BoardEngine *boardengine.Engine
 	FlowEngine  *flowengine.Engine
+	Runtime     *runtimehub.Hub
 	Browser     *browser.Opener
 	API         *api.Server
 	Listener    net.Listener    // set by Run()
@@ -153,6 +155,12 @@ func New(ctx context.Context, opts Options) (*App, error) {
 	// Flow cron jobs call FlowEngine.Execute (interface to avoid import cycle).
 	a.SyncEngine.SetFlowExecutor(a.FlowEngine)
 
+	a.Runtime = runtimehub.New(runtimehub.Options{
+		Bus:   bus,
+		Flows: a.FlowEngine,
+		Tasks: a.SyncEngine,
+	})
+
 	// Open data plane now when config is usable (unlocked, not set up, or
 	// locked but still plaintext on disk). Encrypted+locked → defer until
 	// web unlock.
@@ -168,8 +176,9 @@ func New(ctx context.Context, opts Options) (*App, error) {
 		Auth:        authSvc,
 		Store:       a.Store,
 		Rclone:      a.Rclone,
-		SyncEngine: a.SyncEngine,
-		FlowEngine: a.FlowEngine,
+		SyncEngine:  a.SyncEngine,
+		FlowEngine:  a.FlowEngine,
+		Runtime:     a.Runtime,
 		Bus:         bus,
 		WebUI:       webui.Handler(),
 		Service:     nil,
@@ -260,6 +269,9 @@ func (a *App) BeforeLock() error {
 	if a.FlowEngine != nil {
 		a.FlowEngine.Detach()
 	}
+	if a.Runtime != nil {
+		a.Runtime.Reset()
+	}
 
 	var errs []error
 	if a.Store != nil {
@@ -279,6 +291,9 @@ func (a *App) Close() error {
 	var errs []error
 	if a.Health != nil {
 		a.Health.Stop()
+	}
+	if a.Runtime != nil {
+		a.Runtime.Close()
 	}
 	if a.EventBus != nil {
 		errs = append(errs, a.EventBus.Close())

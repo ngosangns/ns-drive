@@ -71,7 +71,7 @@ function goSettings() {
 
 <template>
   <header
-    class="flex h-[var(--topbar-height)] shrink-0 items-center gap-3 border-b-2 border-border bg-accent px-4"
+    class="flex h-[var(--topbar-height)] shrink-0 items-center gap-3 border-b border-border bg-surface px-4"
     data-testid="app-topbar"
   >
     <button

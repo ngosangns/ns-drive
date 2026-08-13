@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * NeoBrutalism checkbox — Solarized desktop v0.4 style.
- * Square 2px border, hard shadow, bold label; no native rounded checkbox chrome.
+ * Paper checkbox — 1px border, 6px radius, no offset-neo shadow.
  */
 const model = defineModel<boolean>({ default: false })
 
@@ -26,11 +25,9 @@ defineProps<{
       :data-testid="testId"
     />
     <span
-      class="relative inline-flex h-5 w-5 shrink-0 items-center justify-center border-2 border-border text-text transition-all duration-100 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent-strong"
+      class="relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border border-border text-text transition-colors duration-150"
       :class="[
         model ? 'bg-accent' : 'bg-bg group-hover:bg-surface-hover',
-        disabled ? 'shadow-none' : 'shadow-[var(--shadow-neo-sm)]',
-        !disabled && 'group-active:translate-y-px group-active:shadow-none',
       ]"
       aria-hidden="true"
     >

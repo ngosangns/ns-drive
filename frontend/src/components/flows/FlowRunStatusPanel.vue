@@ -302,7 +302,7 @@ function fileBaseName(path: string): string {
 
 function tabBtnClass(id: FileTabId): string {
   const on = fileTab.value === id
-  const base = 'min-w-0 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors'
+  const base = 'min-w-0 px-2 py-1.5 text-xs font-semibold flex items-center justify-center gap-1 border transition-colors'
   if (!on) return `${base} border-transparent text-text-muted hover:bg-bg/50`
   switch (id) {
     case 'syncing':
@@ -366,7 +366,7 @@ function tabBtnClass(id: FileTabId): string {
         <span class="text-lg font-bold tabular-nums">{{ progress.toFixed(1) }}%</span>
         <button
           type="button"
-          class="inline-flex size-7 items-center justify-center border-2 border-border bg-bg hover:bg-surface-hover"
+          class="inline-flex size-7 items-center justify-center rounded-md border border-border bg-bg hover:bg-surface-hover"
           :aria-expanded="expanded"
           :aria-label="t('workspace.syncLabels.toggleDetails')"
           @click="expanded = !expanded"
@@ -382,30 +382,30 @@ function tabBtnClass(id: FileTabId): string {
     </div>
 
     <template v-else>
-      <div class="h-3 w-full border-2 border-border bg-bg">
+      <div class="h-3 w-full overflow-hidden rounded-md border border-border bg-bg">
         <div class="h-full transition-all duration-300" :class="barClass" :style="{ width: `${progress}%` }" />
       </div>
 
       <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-        <div class="border-2 border-border bg-bg px-2 py-1">
+        <div class="rounded-md border border-border bg-bg px-2 py-1">
           <div class="font-bold uppercase text-text-muted">{{ t('workspace.syncLabels.files') }}</div>
           <div class="font-bold tabular-nums">
             {{ ss?.files_transferred ?? 0 }}
             <template v-if="(ss?.total_files ?? 0) > 0"> / {{ ss?.total_files }}</template>
           </div>
         </div>
-        <div class="border-2 border-border bg-bg px-2 py-1">
+        <div class="rounded-md border border-border bg-bg px-2 py-1">
           <div class="font-bold uppercase text-text-muted">{{ t('workspace.syncLabels.checks') }}</div>
           <div class="font-bold tabular-nums">
             {{ ss?.checks ?? 0 }}
             <template v-if="(ss?.total_checks ?? 0) > 0"> / {{ ss?.total_checks }}</template>
           </div>
         </div>
-        <div class="border-2 border-border bg-bg px-2 py-1">
+        <div class="rounded-md border border-border bg-bg px-2 py-1">
           <div class="font-bold uppercase text-text-muted">{{ t('workspace.syncLabels.deletes') }}</div>
           <div class="font-bold tabular-nums">{{ ss?.deletes ?? 0 }}</div>
         </div>
-        <div class="border-2 border-border bg-bg px-2 py-1">
+        <div class="rounded-md border border-border bg-bg px-2 py-1">
           <div class="font-bold uppercase text-text-muted">{{ t('workspace.syncLabels.renames') }}</div>
           <div class="font-bold tabular-nums">{{ ss?.renames ?? 0 }}</div>
         </div>
@@ -519,7 +519,7 @@ function tabBtnClass(id: FileTabId): string {
 
     <p
       v-if="friendlyError"
-      class="m-0 border-2 border-danger bg-bg px-2 py-1 text-xs text-danger"
+      class="m-0 rounded-md border border-danger bg-bg px-2 py-1 text-xs text-danger"
     >
       {{ friendlyError }}
     </p>

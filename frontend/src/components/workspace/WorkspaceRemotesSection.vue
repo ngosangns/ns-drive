@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   PhPlus,
@@ -14,12 +14,11 @@ import { useFlowsStore } from '@/stores/flows'
 import RemoteTypeSelect from '@/components/forms/RemoteTypeSelect.vue'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
+import { configFieldsFor, missingRequiredFields, toConfigKVs } from '@/lib/remoteConfig'
 
 defineOptions({ name: 'WorkspaceRemotesSection' })
 
-defineProps<{
-  eventsConnected: boolean
-}>()
+
 
 const { t } = useI18n()
 const remotes = useRemotesStore()
@@ -30,21 +29,46 @@ const toast = useToast()
 const showRemoteForm = ref(false)
 const remoteName = ref('')
 const remoteType = ref('local')
+const adding = ref(false)
+const addError = ref<string | null>(null)
+const configValues = ref<Record<string, string>>({})
+const configFields = computed(() => configFieldsFor(remoteType.value))
+
+watch(remoteType, () => {
+  configValues.value = {}
+  addError.value = null
+})
 type RemoteTestState = { status: 'loading' } | { status: 'ok' } | { status: 'error'; error?: string }
 const remoteTest = ref<Record<string, RemoteTestState>>({})
 
 const anyRunning = computed(() => flows.runningFlowIds.size > 0)
 
+onMounted(() => {
+  void remotes.load()
+})
+
 async function submitRemote() {
-  if (!remoteName.value.trim()) return
+  if (!remoteName.value.trim() || adding.value) return
+  const missing = missingRequiredFields(remoteType.value, configValues.value)
+  if (missing.length) {
+    addError.value = t('remotes.missingCreds')
+    return
+  }
+  adding.value = true
+  addError.value = null
   try {
-    await remotes.add(remoteName.value.trim(), remoteType.value.trim())
+    await remotes.add(remoteName.value.trim(), remoteType.value.trim(), toConfigKVs(configValues.value))
     showRemoteForm.value = false
     remoteName.value = ''
     remoteType.value = 'local'
+    configValues.value = {}
     toast.success(t('workspace.remoteAdded'))
-  } catch {
-    /* store surfaces error */
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : remotes.error || t('remotes.authFailed')
+    addError.value = msg
+    toast.error(t('remotes.authFailed'))
+  } finally {
+    adding.value = false
   }
 }
 
@@ -74,43 +98,62 @@ async function deleteRemote(name: string) {
 </script>
 
 <template>
-  <section class="shrink-0 border-b-2 border-border bg-bg py-3" data-testid="workspace-remotes">
-    <div class="page-content-wide">
-      <div class="mb-2 flex items-center justify-between gap-2">
-        <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-text-muted">
-          <PhCloud :size="14" weight="bold" />
-          <span>{{ t('workspace.remotes') }}</span>
-          <span class="badge">{{ remotes.items.length }}</span>
-          <span
-            class="font-mono text-[10px] uppercase"
-            :class="eventsConnected ? 'text-success' : 'text-text-dim'"
-          >
-            {{ eventsConnected ? t('workspace.live') : t('workspace.polling') }}
-          </span>
-        </div>
-        <button
-          type="button"
-          class="btn-secondary !px-2 !py-1 text-xs"
-          data-testid="remotes-add"
-          :disabled="anyRunning"
-          @click="showRemoteForm = !showRemoteForm"
-        >
-          <PhPlus :size="14" weight="bold" /> {{ t('remotes.add') }}
-        </button>
+  <section class="space-y-2" data-testid="workspace-remotes">
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+        <PhCloud :size="14" weight="bold" />
+        <span>{{ t('workspace.remotes') }}</span>
+        <span class="badge">{{ remotes.items.length }}</span>
       </div>
+      <button
+        type="button"
+        class="btn-secondary !px-2 !py-1 text-xs"
+        data-testid="remotes-add"
+        :disabled="anyRunning"
+        @click="showRemoteForm = !showRemoteForm"
+      >
+        <PhPlus :size="14" weight="bold" /> {{ t('remotes.add') }}
+      </button>
+    </div>
       <div v-if="showRemoteForm" class="neo-inset mb-3 p-3" data-testid="remotes-add-form">
-        <form class="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]" @submit.prevent="submitRemote">
+        <form class="grid grid-cols-1 gap-2" @submit.prevent="submitRemote">
           <label class="field-label">
             <span>{{ t('common.name') }}</span>
-            <input v-model="remoteName" required class="field-input" data-testid="remotes-name" />
+            <input
+              v-model="remoteName"
+              required
+              class="field-input"
+              :disabled="adding"
+              data-testid="remotes-name"
+            />
           </label>
           <label class="field-label">
             <span>{{ t('common.type') }}</span>
-            <RemoteTypeSelect v-model="remoteType" test-id="remotes-type" />
+            <RemoteTypeSelect v-model="remoteType" test-id="remotes-type" :disabled="adding" />
           </label>
-          <div class="flex items-end">
-            <button type="submit" class="btn-primary" data-testid="remotes-submit">{{ t('common.save') }}</button>
-          </div>
+          <label v-for="f in configFields" :key="f.key" class="field-label">
+            <span>{{ t(f.labelKey) }}</span>
+            <input
+              v-model="configValues[f.key]"
+              :type="f.input === 'password' ? 'password' : f.input === 'url' ? 'url' : 'text'"
+              :required="f.required"
+              class="field-input"
+              :disabled="adding"
+              :autocomplete="f.input === 'password' ? 'new-password' : 'off'"
+              :data-testid="`remotes-cfg-${f.key}`"
+            />
+          </label>
+          <p v-if="addError" class="m-0 text-[11px] font-semibold text-danger" data-testid="remotes-add-error">
+            {{ addError }}
+          </p>
+          <button
+            type="submit"
+            class="btn-primary justify-center"
+            :disabled="adding || !remoteName.trim()"
+            data-testid="remotes-submit"
+          >
+            {{ adding ? t('remotes.testing') : t('remotes.testAndAdd') }}
+          </button>
         </form>
       </div>
       <div v-if="remotes.items.length" class="flex flex-wrap gap-2">
@@ -134,6 +177,5 @@ async function deleteRemote(name: string) {
         </div>
       </div>
       <p v-else class="text-sm text-text-muted">{{ t('workspace.noRemotes') }}</p>
-    </div>
   </section>
 </template>

@@ -11,11 +11,13 @@ const props = withDefaults(
     /** Allow empty schedule (flows optional cron). */
     allowNone?: boolean
     required?: boolean
+    disabled?: boolean
   }>(),
   {
     testId: 'cron-field',
     allowNone: false,
     required: false,
+    disabled: false,
   },
 )
 
@@ -76,6 +78,7 @@ watch(customCron, () => {
       v-model="selectValue"
       class="field-input"
       :data-testid="testId"
+      :disabled="disabled"
       :required="required && selectValue !== NONE"
     >
       <option v-if="allowNone" :value="NONE">{{ t('cron.none') }}</option>
@@ -91,6 +94,7 @@ watch(customCron, () => {
       class="field-input"
       :placeholder="t('cron.customPlaceholder')"
       :data-testid="`${testId}-custom`"
+      :disabled="disabled"
       :required="required"
     />
     <p class="m-0 text-[10px] text-text-dim">{{ t('cron.hint') }}</p>

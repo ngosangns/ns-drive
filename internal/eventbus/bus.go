@@ -198,6 +198,10 @@ const (
 
 	TopicBoardExecution = "board:execution"
 	TopicFlowExecution  = "flow:execution"
+
+	// TopicRuntimeSnapshot is written directly on SSE connect, not published
+	// on the bus (a broadcast would push a snapshot to every subscriber).
+	TopicRuntimeSnapshot = "runtime:snapshot"
 )
 
 // AllTopics returns every topic the bus is expected to emit.

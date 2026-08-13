@@ -3,8 +3,6 @@ package api
 
 import (
 	"net/http"
-
-	"github.com/gnasdev/gn-drive/internal/eventbus"
 )
 
 // handleGetSettings returns app settings.
@@ -38,6 +36,6 @@ func (s *Server) handleSetSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	s.app.Bus.Publish(eventbus.TopicStateChanged, eventbus.StateChangedEvent{})
+	s.publishStateChanged("settings", "")
 	respondOK(w, map[string]bool{"ok": true})
 }

@@ -309,8 +309,10 @@ type Flow struct {
 	CronExpr     string      `json:"cron_expr,omitempty"`
 	SortOrder    int         `json:"sort_order"`
 	Operations   []Operation `json:"operations"`
-	CreatedAt    string      `json:"created_at,omitempty"`
-	UpdatedAt    string      `json:"updated_at,omitempty"`
+	// CanvasJSON is the workspace graph layout (nodes + viewport). Execute ignores it.
+	CanvasJSON json.RawMessage `json:"canvas_json,omitempty"`
+	CreatedAt  string          `json:"created_at,omitempty"`
+	UpdatedAt  string          `json:"updated_at,omitempty"`
 }
 
 // ComposePath builds an rclone path from remote name + path.

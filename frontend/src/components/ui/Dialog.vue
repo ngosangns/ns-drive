@@ -36,7 +36,7 @@ watch(open, (v) => {
     >
       <div
         :class="cn(
-          'w-full rounded-[10px] border border-border bg-surface p-6 shadow-lg',
+          'w-full rounded-md border border-border bg-surface p-6 shadow-[var(--shadow-paper)]',
           size === 'sm' && 'max-w-[460px]',
           size === 'md' && 'max-w-[560px]',
           size === 'lg' && 'max-w-[720px]',

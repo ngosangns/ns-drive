@@ -1,8 +1,7 @@
 @import 'tailwindcss';
 
-/* Solarized NeoBrutalism tokens — port of desktop v0.4.x (pre-Vue multi-page).
- * Light (default) matches the Wails-era Solarized Light theme.
- * Dark is a Solarized Dark neo variant for night use.
+/* Solarized paper tokens — same Solarized hues, quieter chrome.
+ * Light (default) is Solarized Light paper. Dark is Solarized Dark.
  */
 :root {
   --color-bg: #fdf6e3; /* base3 */
@@ -27,12 +26,15 @@
 
   --topbar-height: 3.5rem;
   /* Readable column for main pages (workspace cards, settings). */
-  --content-max: 56rem; /* 896px — comfortable for neo cards on large screens */
+  --content-max: 56rem; /* 896px */
   --content-max-wide: 68rem; /* 1088px — tables / denser layouts */
-  --radius-md: 0;
-  --radius-lg: 0;
-  --shadow-neo: 3px 3px 0 var(--color-shadow);
-  --shadow-neo-sm: 2px 2px 0 var(--color-shadow);
+  --radius-md: 0.5rem; /* 8px — paper chrome */
+  --radius-lg: 0.5rem;
+  --shadow-paper: 0 1px 2px color-mix(in srgb, var(--color-text) 8%, transparent);
+  --shadow-paper-sm: 0 1px 1px color-mix(in srgb, var(--color-text) 6%, transparent);
+  /* Legacy aliases — same paper shadow, never a hard Npx Npx 0 offset. */
+  --shadow-neo: var(--shadow-paper);
+  --shadow-neo-sm: var(--shadow-paper-sm);
 
   --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, monospace;
@@ -88,6 +90,25 @@ html.dark {
 
 /* App shell owns the viewport; page content (main / workspace) scrolls.
  * Do not let document body scroll — nested overflow-auto regions handle it. */
+.vue-flow {
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg);
+}
+.vue-flow__minimap,
+.vue-flow__controls {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-paper);
+}
+.vue-flow__edge-path {
+  stroke: var(--color-border);
+}
+.vue-flow__handle {
+  border-radius: 999px;
+}
+
 html,
 body {
   height: 100%;
@@ -110,10 +131,14 @@ body {
 }
 
 *,
-*:focus,
-*:focus-visible {
+*::before,
+*::after {
   box-sizing: border-box;
-  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
 }
 
 button {
@@ -141,58 +166,43 @@ a {
   background: var(--color-accent-strong);
 }
 
-/* Neo + shared interactive patterns */
+/* Paper chrome — 1px borders, 8px radius, no offset-neo shadow */
 @layer components {
   .neo-card {
-    @apply border-2 border-border bg-surface text-text;
-    box-shadow: var(--shadow-neo);
+    @apply rounded-md border border-border bg-surface text-text;
+    box-shadow: var(--shadow-paper);
   }
   .neo-inset {
-    @apply border-2 border-border bg-bg;
+    @apply rounded-md border border-border bg-bg;
   }
-  /* Nested raised card (e.g. flow operation) — hard offset shadow on surface */
   .neo-op-card {
-    @apply border-2 border-border bg-surface text-text;
-    box-shadow: var(--shadow-neo);
+    @apply rounded-md border border-border bg-surface text-text;
+    box-shadow: var(--shadow-paper);
   }
   .neo-header {
-    @apply border-b-2 border-border bg-accent px-3 py-3;
+    @apply border-b border-border bg-surface px-3 py-3;
   }
   .neo-dashed {
-    @apply border-2 border-dashed border-border-muted bg-bg/50;
+    @apply rounded-md border border-dashed border-border-muted bg-bg/50;
   }
   .btn-primary {
-    @apply inline-flex items-center gap-1.5 border-2 border-border bg-accent px-3.5 py-1.5 text-[13px] font-bold text-text transition-all duration-100 hover:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0;
-    box-shadow: var(--shadow-neo-sm);
-  }
-  .btn-primary:hover:not(:disabled) {
-    box-shadow: none;
+    @apply inline-flex items-center gap-1.5 rounded-md border border-border bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-text transition-colors duration-150 hover:bg-accent-strong/30 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-secondary {
-    @apply inline-flex items-center gap-1.5 border-2 border-border bg-bg px-3 py-1.5 text-[13px] font-bold text-text transition-all duration-100 hover:translate-y-px disabled:cursor-not-allowed disabled:opacity-50;
-    box-shadow: var(--shadow-neo-sm);
-  }
-  .btn-secondary:hover:not(:disabled) {
-    box-shadow: none;
+    @apply inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-3 py-1.5 text-[13px] font-semibold text-text transition-colors duration-150 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-ghost {
-    @apply inline-flex items-center gap-1 border-2 border-transparent bg-transparent px-2.5 py-1.5 text-xs font-bold text-text transition-colors hover:bg-text/10 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center gap-1 rounded-md border border-transparent bg-transparent px-2.5 py-1.5 text-xs font-semibold text-text transition-colors hover:bg-text/10 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-danger,
   button.danger {
-    @apply inline-flex items-center gap-1 border-2 border-border bg-danger/15 px-2 py-1.5 text-xs font-bold text-danger transition-all duration-100 hover:translate-y-px hover:bg-danger/25 disabled:cursor-not-allowed disabled:opacity-50;
-    box-shadow: var(--shadow-neo-sm);
-  }
-  .btn-danger:hover:not(:disabled),
-  button.danger:hover:not(:disabled) {
-    box-shadow: none;
+    @apply inline-flex items-center gap-1 rounded-md border border-border bg-danger/15 px-2 py-1.5 text-xs font-semibold text-danger transition-colors duration-150 hover:bg-danger/25 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-icon {
-    @apply flex h-8 w-8 items-center justify-center border-2 border-transparent bg-transparent text-text transition-colors hover:bg-text/10;
+    @apply flex h-8 w-8 items-center justify-center rounded-md border border-transparent bg-transparent text-text transition-colors hover:bg-text/10;
   }
   .field-input {
-    @apply box-border h-9 w-full border-2 border-border bg-bg px-2.5 font-mono text-[13px] leading-none text-text disabled:opacity-60;
-    box-shadow: var(--shadow-neo-sm);
+    @apply box-border h-9 w-full rounded-md border border-border bg-bg px-2.5 font-mono text-[13px] leading-none text-text disabled:opacity-60;
   }
   /* Native <select> defaults (line-box, appearance) often render taller than
    * <input type="text"> with the same padding — normalize both to h-9. */
@@ -217,8 +227,8 @@ a {
   }
   .panel-card,
   .card {
-    @apply border-2 border-border bg-surface;
-    box-shadow: var(--shadow-neo);
+    @apply rounded-md border border-border bg-surface;
+    box-shadow: var(--shadow-paper);
   }
   /* Centered page column — use inside full-bleed sections so borders can
    * span the viewport while form/card content stays readable. */
@@ -244,17 +254,17 @@ a {
     @apply m-0 mb-2 text-xs font-bold uppercase tracking-wide text-text-muted;
   }
   .badge {
-    @apply inline-block border-2 border-border bg-bg px-1.5 py-px font-mono text-[11px] font-bold text-text-muted;
+    @apply inline-block rounded-md border border-border bg-bg px-1.5 py-px font-mono text-[11px] font-semibold text-text-muted;
   }
   .table-wrap {
-    @apply overflow-hidden border-2 border-border bg-surface;
-    box-shadow: var(--shadow-neo);
+    @apply overflow-hidden rounded-md border border-border bg-surface;
+    box-shadow: var(--shadow-paper);
   }
   .data-table {
     @apply w-full border-collapse;
   }
   .data-table thead th {
-    @apply border-b-2 border-border bg-bg-secondary px-3.5 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-text-dim;
+    @apply border-b border-border bg-bg-secondary px-3.5 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-text-dim;
   }
   .data-table tbody td {
     @apply border-t border-border px-3.5 py-2 text-[13px];
@@ -263,7 +273,7 @@ a {
     @apply border-t-0;
   }
   button.toggle {
-    @apply inline-flex items-center gap-1 border-2 border-border bg-bg px-2 py-1 text-[11px] font-bold text-text-muted transition-colors hover:bg-surface-hover;
+    @apply inline-flex items-center gap-1 rounded-md border border-border bg-bg px-2 py-1 text-[11px] font-semibold text-text-muted transition-colors hover:bg-surface-hover;
   }
   button.toggle.on {
     @apply border-success text-success;
@@ -281,7 +291,6 @@ a {
     border-width: 0;
   }
   a.quick-link {
-    @apply inline-flex items-center gap-1.5 border-2 border-border bg-surface px-3 py-1.5 text-xs font-bold text-text transition-all hover:translate-y-px;
-    box-shadow: var(--shadow-neo-sm);
+    @apply inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-text transition-colors hover:bg-surface-hover;
   }
 }

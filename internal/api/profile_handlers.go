@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/gnasdev/gn-drive/internal/eventbus"
 	"github.com/gnasdev/gn-drive/internal/store"
 )
 
@@ -59,7 +58,7 @@ func (s *Server) handleCreateProfile(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, "save_error", err.Error())
 		return
 	}
-	s.app.Bus.Publish(eventbus.TopicStateChanged, eventbus.StateChangedEvent{})
+	s.publishStateChanged("profiles", p.Name)
 	respondCreated(w, p)
 }
 
@@ -79,7 +78,7 @@ func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, "save_error", err.Error())
 		return
 	}
-	s.app.Bus.Publish(eventbus.TopicStateChanged, eventbus.StateChangedEvent{})
+	s.publishStateChanged("profiles", p.Name)
 	respondOK(w, p)
 }
 
@@ -112,6 +111,6 @@ func (s *Server) handleDeleteProfile(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, "delete_error", err.Error())
 		return
 	}
-	s.app.Bus.Publish(eventbus.TopicStateChanged, eventbus.StateChangedEvent{})
+	s.publishStateChanged("profiles", name)
 	respondOK(w, map[string]bool{"ok": true})
 }

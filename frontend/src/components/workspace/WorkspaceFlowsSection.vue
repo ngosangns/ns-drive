@@ -386,8 +386,8 @@ function scheduleLabel(f: Flow): string {
 
         <!-- FLOWS (primary) -->
         <div data-testid="workspace-flows">
-        <div class="flex items-end justify-between gap-3">
-          <div>
+        <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div class="min-w-0 flex-1">
             <h2 class="m-0 flex items-center gap-2 text-lg font-bold">
               <PhStack :size="22" weight="bold" />
               {{ t('workspace.flows') }}
@@ -396,7 +396,7 @@ function scheduleLabel(f: Flow): string {
           </div>
           <button
             type="button"
-            class="btn-primary"
+            class="btn-primary shrink-0"
             data-testid="flows-add"
             :disabled="anyRunning"
             @click="addFlow"
@@ -413,13 +413,14 @@ function scheduleLabel(f: Flow): string {
           :class="flowCardBorderClass(f)"
           :data-testid="`flow-card-${f.id}`"
         >
-          <!-- Header: name | Run/Stop + Remove  (Wails flow-card) -->
-          <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b-2 border-border bg-accent p-3">
-            <div class="min-w-0 flex items-center gap-2">
+          <!-- Header: typographic surface; actions wrap under the title on narrow widths -->
+          <div class="flex flex-col gap-3 border-b border-border bg-surface p-3">
+            <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div class="min-w-0 flex items-center gap-2">
               <template v-if="editingNameId === f.id">
                 <input
                   v-model="editingNameDraft"
-                  class="min-w-0 flex-1 border-2 border-border bg-bg px-2 py-1 text-base font-bold outline-none"
+                  class="field-input min-w-0 flex-1 !h-auto py-1 text-base font-bold"
                   type="text"
                   :placeholder="t('workspace.flowLabel', { n: fi + 1 })"
                   data-testid="flows-name-inline"
@@ -455,9 +456,9 @@ function scheduleLabel(f: Flow): string {
                   <PhPencilSimple :size="14" weight="bold" />
                 </button>
               </template>
-            </div>
+              </div>
 
-            <div class="flex flex-wrap items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
               <button
                 v-if="flows.isFlowRunning(f.id)"
                 type="button"
@@ -516,11 +517,12 @@ function scheduleLabel(f: Flow): string {
               >
                 <PhTrash :size="14" class="text-danger" /> {{ t('workspace.remove') }}
               </button>
+              </div>
             </div>
 
-            <!-- Meta row (Wails col-span-2): ops · cron · status -->
-            <div class="col-span-2 flex flex-wrap items-center gap-2">
-              <span class="border-2 border-border bg-bg/70 px-2 py-1 text-xs font-bold">
+            <!-- Meta: ops · cron · status -->
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="badge">
                 {{ (f.operations ?? []).length }}
                 {{
                   (f.operations ?? []).length === 1
@@ -530,21 +532,21 @@ function scheduleLabel(f: Flow): string {
               </span>
               <span
                 v-if="(f.schedule_enabled ?? f.enabled) && (f.schedule_cron || f.cron_expr)"
-                class="border-2 border-border bg-bg/70 px-2 py-1 text-xs font-bold"
+                class="badge"
               >
                 <PhClock :size="12" class="mr-0.5 inline" />
                 {{ f.schedule_cron || f.cron_expr }}
               </span>
               <span
                 v-if="isFlowDirty(f.id)"
-                class="border-2 border-warning px-2 py-1 text-xs font-bold text-warning"
+                class="rounded-md border border-warning px-2 py-1 text-xs font-semibold text-warning"
                 data-testid="flows-unsaved"
               >
                 {{ t('workspace.unsaved') }}
               </span>
               <span
                 v-if="flowRuntimeStatus(f) !== 'idle'"
-                class="border-2 border-border px-2 py-1 text-xs font-bold"
+                class="rounded-md border border-border px-2 py-1 text-xs font-semibold"
                 :class="{
                   'bg-warning/20 text-running': flowRuntimeStatus(f) === 'running' || flowRuntimeStatus(f) === 'cancelling',
                   'bg-success/20 text-success': flowRuntimeStatus(f) === 'completed',
@@ -575,7 +577,7 @@ function scheduleLabel(f: Flow): string {
                 :data-testid="`flow-view-schedule-${f.id}`"
               >
                 <span class="font-bold uppercase text-text-muted">{{ t('flows.schedule') }}</span>
-                <span class="border-2 border-border bg-bg-secondary px-2 py-1 font-mono font-bold">
+                <span class="rounded-md border border-border bg-bg-secondary px-2 py-1 font-mono font-semibold">
                   <PhClock :size="12" class="mr-0.5 inline" />
                   {{ scheduleLabel(f) }}
                 </span>
@@ -598,13 +600,13 @@ function scheduleLabel(f: Flow): string {
                   >
                     <div class="flex flex-wrap items-center gap-2">
                       <span class="font-mono text-xs font-bold text-text-dim">#{{ oi + 1 }}</span>
-                      <span class="border-2 border-border bg-bg px-2 py-0.5 text-[11px] font-bold">
+                      <span class="rounded-md border border-border bg-bg px-2 py-0.5 text-[11px] font-semibold">
                         {{ opActionLabel(resolveOpAction(op)) }}
                       </span>
                       <span
                         v-for="chip in opSettingsChips(op)"
                         :key="chip"
-                        class="border-2 border-border bg-bg px-2 py-0.5 text-[10px] font-bold text-text-muted"
+                        class="rounded-md border border-border bg-bg px-2 py-0.5 text-[10px] font-semibold text-text-muted"
                       >
                         {{ chip }}
                       </span>
@@ -648,7 +650,7 @@ function scheduleLabel(f: Flow): string {
               </template>
               <p
                 v-else
-                class="m-0 border-2 border-dashed border-border-muted px-3 py-4 text-center text-sm text-text-muted"
+                class="m-0 rounded-md border border-dashed border-border-muted px-3 py-4 text-center text-sm text-text-muted"
               >
                 {{ t('workspace.noOperations') }}
               </p>
@@ -680,9 +682,9 @@ function scheduleLabel(f: Flow): string {
                   <PhArrowRight :size="16" class="rotate-90" weight="bold" />
                 </div>
                 <div class="neo-op-card overflow-hidden" :data-testid="`op-row-${op.id}`">
-                  <div class="flex items-center gap-2 border-b-2 border-border bg-bg-secondary px-3 py-2">
+                  <div class="flex items-center gap-2 border-b border-border bg-bg-secondary px-3 py-2">
                     <span class="font-mono text-xs font-bold text-text-dim">#{{ oi + 1 }}</span>
-                    <span class="border-2 border-border bg-bg px-2 py-0.5 font-mono text-[11px] font-bold uppercase">
+                    <span class="rounded-md border border-border bg-bg px-2 py-0.5 font-mono text-[11px] font-semibold uppercase">
                       {{ opActionLabel(resolveOpAction(op)) }}
                     </span>
                     <span
@@ -703,8 +705,8 @@ function scheduleLabel(f: Flow): string {
                       <PhTrash :size="12" class="text-danger" />
                     </button>
                   </div>
-                  <div class="grid grid-cols-1 gap-3 p-3 lg:grid-cols-[1fr_auto_1fr]">
-                    <label class="field-label">
+                  <div class="grid grid-cols-1 gap-3 p-3 md:grid-cols-2 md:items-start">
+                    <label class="field-label min-w-0">
                       <span>{{ t('workspace.source') }}</span>
                       <RemotePathField
                         :model-value="composeOp(op.source_remote, op.source_path)"
@@ -714,19 +716,7 @@ function scheduleLabel(f: Flow): string {
                         @update:model-value="setOpSource(f.id, op, $event)"
                       />
                     </label>
-                    <div
-                      class="hidden items-center justify-center lg:flex"
-                      :title="opActionLabel(resolveOpAction(op))"
-                    >
-                      <PhArrowsLeftRight
-                        v-if="opFlowIcon(resolveOpAction(op)) === 'both'"
-                        :size="18"
-                        weight="bold"
-                        class="text-text-dim"
-                      />
-                      <PhArrowRight v-else :size="18" weight="bold" class="text-text-dim" />
-                    </div>
-                    <label class="field-label">
+                    <label class="field-label min-w-0">
                       <span>{{ t('workspace.target') }}</span>
                       <RemotePathField
                         :model-value="composeOp(op.target_remote, op.target_path)"
@@ -753,7 +743,7 @@ function scheduleLabel(f: Flow): string {
               </template>
 
               <div
-                class="mt-1 flex cursor-pointer items-center justify-center gap-2 border-2 border-dashed border-border-muted bg-bg/50 p-3 text-sm font-medium text-text-muted transition-colors hover:border-accent-strong hover:bg-accent/20"
+                class="mt-1 flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border-muted bg-bg/50 p-3 text-sm font-medium text-text-muted transition-colors hover:border-accent-strong hover:bg-accent/20"
                 role="button"
                 tabindex="0"
                 :class="!canEditFlow(f.id) && 'pointer-events-none opacity-50'"
@@ -766,7 +756,7 @@ function scheduleLabel(f: Flow): string {
 
               <div
                 v-if="isFlowDirty(f.id)"
-                class="flex flex-wrap items-center justify-between gap-2 border-t-2 border-border pt-3"
+                class="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3"
               >
                 <p class="m-0 text-xs text-text-muted">{{ t('workspace.saveHint') }}</p>
                 <button

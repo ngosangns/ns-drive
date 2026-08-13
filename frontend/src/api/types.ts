@@ -92,6 +92,18 @@ export interface Flow {
   cron_expr?: string
   sort_order?: number
   operations?: Operation[]
+  /** Location nodes + viewport for the workspace canvas. Ignored by execute. */
+  canvas_json?: {
+    viewport?: { x: number; y: number; zoom: number }
+    nodes?: Array<{
+      id: string
+      remote: string
+      path: string
+      label?: string
+      x: number
+      y: number
+    }>
+  } | Record<string, unknown> | null
   created_at?: string
   updated_at?: string
   /** Runtime only */
@@ -156,6 +168,36 @@ export interface FlowOpSyncStatus {
   transfers?: FileTransferInfo[]
   error_message?: string
   updated_at: number
+}
+
+/** Backend RuntimeSnapshotEvent — hydrate after reload / SSE connect. */
+export interface RuntimeOpState {
+  id: string
+  status: string
+  last_error?: string
+}
+
+export interface RuntimeLogLine {
+  at: number
+  status: string
+  op_id?: string
+  error?: string
+  label?: string
+}
+
+export interface RuntimeFlowState {
+  id: string
+  status: string
+  last_error?: string
+  ops?: RuntimeOpState[]
+  sync?: Record<string, unknown> | null
+  log?: RuntimeLogLine[]
+}
+
+export interface RuntimeSnapshot {
+  revision?: number
+  type?: string
+  flows?: RuntimeFlowState[]
 }
 
 export interface SyncTask {

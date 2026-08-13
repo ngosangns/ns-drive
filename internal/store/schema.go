@@ -109,7 +109,8 @@ CREATE TABLE IF NOT EXISTS flows (
     cron_expr        TEXT NOT NULL DEFAULT '',
     sort_order       INTEGER NOT NULL DEFAULT 0,
     created_at       TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    canvas_json      TEXT NOT NULL DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS idx_flows_sort_order ON flows(sort_order);
 

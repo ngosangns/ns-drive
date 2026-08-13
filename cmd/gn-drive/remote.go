@@ -106,7 +106,7 @@ Example (local filesystem):
 
 // runRemoteAdd is the testable inner work of newRemoteAddCmd.
 func runRemoteAdd(ctx context.Context, a *app.App, name, remoteType string, configKVs []string, cmd *cobra.Command) error {
-	if err := a.Rclone.CreateRemote(ctx, name, remoteType, configKVs); err != nil {
+	if err := a.Rclone.CreateRemoteVerified(ctx, name, remoteType, configKVs); err != nil {
 		return err
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "✓ added remote %q (type=%s)\n", name, remoteType)

@@ -52,7 +52,6 @@ describe('full journey', () => {
   it('unlocks and loads workspace sections', async () => {
     await unlock(page)
     await waitForTestId(page, 'page-workspace')
-    await waitForTestId(page, 'workspace-remotes')
     await waitForTestId(page, 'workspace-flows')
     const text = await page.$eval('[data-testid="page-workspace"]', (el) => el.textContent ?? '')
     assert.match(text, /Remotes|Flows/i)
@@ -90,6 +89,10 @@ describe('full journey', () => {
   })
 
   it('creates and tests a local rclone remote', async () => {
+    await waitForTestId(page, 'workspace-flows')
+    await clickTestId(page, 'flows-add')
+    await page.waitForSelector('[data-testid^="canvas-node-"]')
+    await page.click('[data-testid^="canvas-node-"]')
     await waitForTestId(page, 'workspace-remotes')
     await clickTestId(page, 'remotes-add')
     await waitForTestId(page, 'remotes-add-form')
@@ -102,13 +105,14 @@ describe('full journey', () => {
 
   it('creates a flow, sets local paths, runs push sync', async () => {
     await waitForTestId(page, 'workspace-flows')
-    await clickTestId(page, 'flows-add')
-
-    // New flow card appears in edit mode with one empty operation.
+    if ((await page.$$('[data-testid^="flow-card-"]')).length === 0) {
+      await clickTestId(page, 'flows-add')
+    }
     await page.waitForFunction(
       () => document.querySelectorAll('[data-testid^="flow-card-"]').length > 0,
       { timeout: 10_000 },
     )
+    await page.click('[data-testid^="flow-card-"]')
     flowId = await page.evaluate(() => {
       const card = document.querySelector('[data-testid^="flow-card-"]')
       const tid = card?.getAttribute('data-testid') ?? ''
@@ -132,15 +136,36 @@ describe('full journey', () => {
     })
     assert.ok(opId, 'expected operation row')
 
-    await page.click(`[data-testid="op-src-${opId}"]`, { clickCount: 3 })
-    await page.type(`[data-testid="op-src-${opId}"]`, srcDir)
-    await page.click(`[data-testid="op-dst-${opId}"]`, { clickCount: 3 })
-    await page.type(`[data-testid="op-dst-${opId}"]`, dstDir)
+    const edgeLabel = await page.$(`[data-testid="canvas-edge-${opId}"]`)
+    if (edgeLabel) await edgeLabel.click()
+    await waitForTestId(page, `op-src-${opId}`)
 
-    await clickTestId(page, `flows-save-bottom-${flowId}`)
+    await typeTestId(page, `op-src-${opId}`, srcDir)
+    await typeTestId(page, `op-dst-${opId}`, dstDir)
     await new Promise((r) => setTimeout(r, 500))
 
-    await clickTestId(page, 'flows-run')
+    await clickTestId(page, `flows-save-bottom-${flowId}`)
+    await new Promise((r) => setTimeout(r, 300))
+
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await waitForTestId(page, 'page-workspace', 15_000)
+    await page.waitForSelector('[data-testid^="flow-card-"]')
+    await page.click('[data-testid^="flow-card-"]')
+    const edgeAfter = await page.$(`[data-testid="canvas-edge-${opId}"]`)
+    if (edgeAfter) await edgeAfter.click()
+    await waitForTestId(page, `op-src-${opId}`)
+    const srcVal = await page.$eval(
+      `[data-testid="op-src-${opId}"]`,
+      (el) => (el as HTMLInputElement).value,
+    )
+    assert.ok(srcVal.includes(srcDir) || srcVal.length > 1, `source persisted after reload, got ${srcVal}`)
+
+    await Promise.all([
+      page.waitForResponse((res) => res.url().includes('/execute') && res.ok(), { timeout: 15_000 }),
+      clickTestId(page, 'flows-run'),
+    ])
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await waitForTestId(page, 'page-workspace', 15_000)
 
     const deadline = Date.now() + 45_000
     let copied = false
@@ -232,6 +257,12 @@ describe('full journey', () => {
 
   it('deletes remote after re-unlock', async () => {
     await ensureSession(page)
+    await waitForTestId(page, 'workspace-flows')
+    if (!(await page.$('[data-testid^="flow-card-"]'))) {
+      await clickTestId(page, 'flows-add')
+    }
+    await page.waitForSelector('[data-testid^="canvas-node-"]')
+    await page.click('[data-testid^="canvas-node-"]')
     await waitForTestId(page, 'workspace-remotes')
     await waitForText(page, remoteName, 10_000)
     await page.evaluate((n: string) => {

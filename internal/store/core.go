@@ -94,6 +94,7 @@ func (s *Store) migrate(ctx context.Context) error {
 		return fmt.Errorf("create tables: %w", err)
 	}
 	s.migrateProfilesNewColumns(ctx)
+	s.migrateFlowsCanvasJSON(ctx)
 	if err := s.applyMigrations(ctx); err != nil {
 		return fmt.Errorf("apply versioned migrations: %w", err)
 	}

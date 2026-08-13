@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -649,6 +650,18 @@ func TestFlowRepo_SaveGetListDelete(t *testing.T) {
 	}
 	if got.Operations[0].SourceRemote != "dropbox" {
 		t.Errorf("SourceRemote = %q", got.Operations[0].SourceRemote)
+	}
+
+	f.CanvasJSON = []byte(`{"viewport":{"x":1,"y":2,"zoom":1},"nodes":[{"id":"n1","remote":"dropbox","path":"/docs","label":"","x":0,"y":0}]}`)
+	if err := s.Flows().Save(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+	got, err = s.Flows().Get(ctx, "f1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got.CanvasJSON), "n1") || !strings.Contains(string(got.CanvasJSON), "/docs") {
+		t.Errorf("CanvasJSON = %s", got.CanvasJSON)
 	}
 
 	list, _ := s.Flows().List(ctx)

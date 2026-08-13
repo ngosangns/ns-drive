@@ -455,6 +455,40 @@ func TestTestRemote(t *testing.T) {
 	}
 }
 
+func TestCreateRemoteVerified_Success(t *testing.T) {
+	bin := newFakeRclone(t)
+	c, _ := New(Options{BinaryPath: bin, Logger: noopLogger()})
+	if err := c.CreateRemoteVerified(context.Background(), "r1", "local", nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCreateRemoteVerified_AuthFailsRollsBack(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "rclone-auth-fail")
+	script := `#!/bin/sh
+for a in "$@"; do
+  if [ "$a" = "lsd" ]; then
+    echo "token expired" 1>&2
+    exit 1
+  fi
+done
+echo "ok"
+exit 0
+`
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	c, _ := New(Options{BinaryPath: bin, Logger: noopLogger()})
+	err := c.CreateRemoteVerified(context.Background(), "r1", "drive", nil)
+	if err == nil {
+		t.Fatal("expected auth failure")
+	}
+	if !strings.Contains(err.Error(), "auth failed") {
+		t.Errorf("error = %v, want auth failed", err)
+	}
+}
+
 func TestSync_UnknownAction(t *testing.T) {
 	bin := newFakeRclone(t)
 	c, _ := New(Options{BinaryPath: bin, Logger: noopLogger()})

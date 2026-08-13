@@ -1,0 +1,158 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { describe, it } from 'node:test'
+import { fileURLToPath } from 'node:url'
+
+const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const src = (...parts: string[]) => path.join(frontendDir, 'src', ...parts)
+
+function readSrc(...parts: string[]): string {
+  return fs.readFileSync(src(...parts), 'utf8')
+}
+
+function cssVar(css: string, name: string, scope = ':root'): string {
+  const blockRe = new RegExp(`${scope.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([\\s\\S]*?)\\n\\}`)
+  const block = blockRe.exec(css)?.[1]
+  assert.ok(block, `missing CSS scope ${scope}`)
+  const m = new RegExp(`--${name}:\\s*([^;]+);`).exec(block)
+  assert.ok(m, `missing --${name} in ${scope}`)
+  return m[1].trim()
+}
+
+function remToPx(value: string): number {
+  const rem = /^([\d.]+)rem$/.exec(value)
+  if (rem) return Number(rem[1]) * 16
+  const px = /^([\d.]+)px$/.exec(value)
+  assert.ok(px, `expected rem or px, got ${value}`)
+  return Number(px[1])
+}
+
+describe('solarized paper chrome', () => {
+  const css = readSrc('styles', 'main.css')
+  const topbar = readSrc('components', 'layout', 'Topbar.vue')
+  const flows = readSrc('components', 'workspace', 'WorkspaceFlowsSection.vue')
+  const pathField = readSrc('components', 'forms', 'RemotePathField.vue')
+  const settings = readSrc('components', 'flows', 'OperationSettingsPanel.vue')
+
+  it('keeps Solarized paper/base hues and 6–8px radius without offset-neo shadows', () => {
+    assert.equal(cssVar(css, 'color-bg'), '#fdf6e3')
+    assert.equal(cssVar(css, 'color-bg-secondary'), '#eee8d5')
+    assert.equal(cssVar(css, 'color-bg', 'html.dark'), '#002b36')
+    assert.equal(cssVar(css, 'color-bg-secondary', 'html.dark'), '#073642')
+
+    const radius = remToPx(cssVar(css, 'radius-md'))
+    assert.ok(radius >= 6 && radius <= 8, `radius-md ${radius}px not in 6–8`)
+
+    const paper = cssVar(css, 'shadow-paper')
+    const neo = cssVar(css, 'shadow-neo')
+    assert.match(paper, /^0\s+\d+px/)
+    assert.doesNotMatch(paper, /\d+px\s+\d+px\s+0\b/)
+    assert.equal(neo, 'var(--shadow-paper)')
+    assert.match(css, /\.neo-card[\s\S]*?border border-border/)
+    assert.doesNotMatch(css, /\.btn-primary[\s\S]*?border-2/)
+    assert.doesNotMatch(css, /\.field-input[\s\S]*?border-2/)
+  })
+
+  it('uses typographic topbar and flow-card headers, not mustard fill bands', () => {
+    const header = /<header[\s\S]*?>/.exec(topbar)?.[0] ?? ''
+    assert.match(header, /bg-surface/)
+    assert.doesNotMatch(header, /bg-accent/)
+
+    const flowHeader = /<!-- Header:[\s\S]*?<div class="([^"]+)"/.exec(flows)?.[1] ?? ''
+    assert.match(flowHeader, /bg-surface/)
+    assert.doesNotMatch(flowHeader, /bg-accent/)
+  })
+
+  it('keeps source and target in two columns at md+ with path + Browse on one row', () => {
+    assert.match(flows, /md:grid-cols-2/)
+    const row = /<div class="(flex min-w-0 items-center gap-1\.5)">/.exec(pathField)?.[1] ?? ''
+    assert.equal(row, 'flex min-w-0 items-center gap-1.5')
+    assert.doesNotMatch(pathField, /flex-wrap items-center gap-1\.5/)
+    assert.match(pathField, /shrink-0 whitespace-nowrap/)
+  })
+
+  it('stacks flow actions under the title on narrow widths and collapses settings groups', () => {
+    assert.match(flows, /flex min-w-0 flex-col gap-2 sm:flex-row/)
+    assert.match(settings, /data-testid="op-settings-panel"/)
+    const groups = [
+      'workspace.opSettings.performance',
+      'workspace.opSettings.filtering',
+      'workspace.opSettings.safety',
+      'workspace.opSettings.comparison',
+      'workspace.opSettings.syncOptions',
+      'workspace.opSettings.bisyncOptions',
+    ]
+    for (const key of groups) {
+      const idx = settings.indexOf(key)
+      assert.ok(idx > 0, `missing settings group ${key}`)
+      const before = settings.slice(Math.max(0, idx - 400), idx)
+      assert.match(before, /<details/, `${key} should live in a <details>`)
+      assert.doesNotMatch(before, /<details[^>]*\sopen[\s>]/, `${key} must start collapsed`)
+    }
+  })
+
+  it('shows a run-only file bar and locks inspector fields while running', () => {
+    const page = readSrc('pages', 'WorkspacePage.vue')
+    const bar = readSrc('components', 'canvas', 'FlowRunBottomBar.vue')
+    const inspector = readSrc('components', 'canvas', 'CanvasInspector.vue')
+    assert.match(page, /FlowRunBottomBar/)
+    assert.match(bar, /data-testid="flow-run-bar"/)
+    assert.match(bar, /v-if="visible && activeFlow"/)
+    assert.match(inspector, /:disabled="running"/)
+    assert.match(inspector, /:disabled="!dirty \|\| running"/)
+  })
+
+  it('keeps e2e data-testid hooks used by the full journey', () => {
+    const journey = fs.readFileSync(
+      path.join(frontendDir, 'e2e/specs/full-journey.spec.ts'),
+      'utf8',
+    )
+    const hooks = [
+      'page-unlock',
+      'unlock-password',
+      'unlock-submit',
+      'unlock-error',
+      'page-workspace',
+      'workspace-remotes',
+      'workspace-flows',
+      'remotes-add',
+      'remotes-add-form',
+      'remotes-name',
+      'remotes-type',
+      'remotes-submit',
+      'flows-add',
+      'flows-edit-name',
+      'flows-name-inline',
+      'flows-run',
+      'nav-settings',
+      'page-settings',
+      'nav-workspace',
+      'theme-light',
+      'theme-dark',
+      'settings-old-password',
+      'settings-new-password',
+      'settings-change-password',
+      'settings-msg',
+      'lock-button',
+    ]
+    const tree = [
+      readSrc('pages', 'UnlockPage.vue'),
+      readSrc('pages', 'WorkspacePage.vue'),
+      readSrc('pages', 'SettingsPage.vue'),
+      readSrc('components', 'layout', 'Topbar.vue'),
+      readSrc('components', 'workspace', 'WorkspaceRemotesSection.vue'),
+      readSrc('components', 'canvas', 'CanvasInspector.vue'),
+      flows,
+    ].join('\n')
+    for (const hook of hooks) {
+      assert.match(journey, new RegExp(hook.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+      assert.match(tree, new RegExp(hook.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), hook)
+    }
+    assert.match(flows, /op-src-\$\{op\.id\}/)
+    assert.match(flows, /op-dst-\$\{op\.id\}/)
+    assert.match(flows, /flows-save-bottom-\$\{f\.id\}/)
+    assert.match(flows, /flows-delete-\$\{f\.id\}/)
+    assert.match(readSrc('components', 'workspace', 'WorkspaceRemotesSection.vue'), /remote-chip-\$\{r\.name\}/)
+  })
+})

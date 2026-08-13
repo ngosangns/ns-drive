@@ -189,7 +189,7 @@ function removeExclude(i: number) {
 
 <template>
   <div
-    class="space-y-3 border-t-2 border-border bg-bg p-3"
+    class="space-y-3 border-t border-border bg-bg p-3"
     :class="disabled && 'pointer-events-none opacity-50'"
     data-testid="op-settings-panel"
   >
@@ -223,16 +223,15 @@ function removeExclude(i: number) {
       </div>
     </div>
 
-    <!-- Performance -->
-    <section class="border-2 border-border">
-      <div
-        class="flex items-center gap-2 border-b-2 border-border border-l-4 border-l-[var(--color-info,#268bd2)] bg-bg-secondary px-3 py-2"
+    <!-- Performance — collapsed until opened -->
+    <details class="group rounded-md border border-border">
+      <summary
+        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-info,#268bd2)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
       >
-        <span class="text-xs font-bold uppercase tracking-wide">{{
-          t('workspace.opSettings.performance')
-        }}</span>
-      </div>
-      <div class="space-y-3 p-3">
+        {{ t('workspace.opSettings.performance') }}
+        <PhCaretDown :size="12" class="ml-auto transition-transform group-open:rotate-180" />
+      </summary>
+      <div class="space-y-3 border-t border-border p-3">
         <div class="grid grid-cols-2 gap-2">
           <label class="field-label !mb-0">
             <span>{{ t('workspace.opSettings.parallel') }}</span>
@@ -378,18 +377,17 @@ function removeExclude(i: number) {
           </div>
         </details>
       </div>
-    </section>
+    </details>
 
-    <!-- Filtering -->
-    <section class="border-2 border-border">
-      <div
-        class="flex items-center gap-2 border-b-2 border-border border-l-4 border-l-[var(--color-accent-strong,#6c71c4)] bg-bg-secondary px-3 py-2"
+    <!-- Filtering — collapsed until opened -->
+    <details class="group rounded-md border border-border">
+      <summary
+        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-accent-strong,#6c71c4)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
       >
-        <span class="text-xs font-bold uppercase tracking-wide">{{
-          t('workspace.opSettings.filtering')
-        }}</span>
-      </div>
-      <div class="space-y-3 p-3">
+        {{ t('workspace.opSettings.filtering') }}
+        <PhCaretDown :size="12" class="ml-auto transition-transform group-open:rotate-180" />
+      </summary>
+      <div class="space-y-3 border-t border-border p-3">
         <div>
           <div class="mb-1 text-xs font-bold text-text-muted">{{ t('workspace.opSettings.includePaths') }}</div>
           <div
@@ -543,17 +541,17 @@ function removeExclude(i: number) {
           </div>
         </details>
       </div>
-    </section>
+    </details>
 
     <!-- Safety -->
-    <details class="group border-2 border-border">
+    <details class="group rounded-md border border-border">
       <summary
-        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-warning,#b58900)] bg-bg-secondary px-3 py-2 text-xs font-bold uppercase tracking-wide"
+        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-warning,#b58900)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
       >
         {{ t('workspace.opSettings.safety') }}
         <PhCaretDown :size="12" class="ml-auto transition-transform group-open:rotate-180" />
       </summary>
-      <div class="space-y-3 border-t-2 border-border p-3">
+      <div class="space-y-3 border-t border-border p-3">
         <div class="grid grid-cols-2 gap-2">
           <label class="field-label !mb-0">
             <span>{{ t('workspace.opSettings.maxDelete') }}</span>
@@ -624,14 +622,14 @@ function removeExclude(i: number) {
     </details>
 
     <!-- Comparison -->
-    <details class="group border-2 border-border">
+    <details class="group rounded-md border border-border">
       <summary
-        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-success,#859900)] bg-bg-secondary px-3 py-2 text-xs font-bold uppercase tracking-wide"
+        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-success,#859900)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
       >
         {{ t('workspace.opSettings.comparison') }}
         <PhCaretDown :size="12" class="ml-auto transition-transform group-open:rotate-180" />
       </summary>
-      <div class="flex flex-wrap gap-4 border-t-2 border-border p-3">
+      <div class="flex flex-wrap gap-4 border-t border-border p-3">
         <AppCheckbox
           :model-value="!!cfg.sizeOnly"
           :disabled="disabled"
@@ -653,16 +651,15 @@ function removeExclude(i: number) {
       </div>
     </details>
 
-    <!-- Sync options (push) -->
-    <section v-if="isPush" class="border-2 border-border">
-      <div
-        class="flex items-center gap-2 border-b-2 border-border border-l-4 border-l-[var(--color-info,#2aa198)] bg-bg-secondary px-3 py-2"
+    <!-- Sync options (push) — collapsed until opened -->
+    <details v-if="isPush" class="group rounded-md border border-border">
+      <summary
+        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-info,#2aa198)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
       >
-        <span class="text-xs font-bold uppercase tracking-wide">{{
-          t('workspace.opSettings.syncOptions')
-        }}</span>
-      </div>
-      <div class="p-3">
+        {{ t('workspace.opSettings.syncOptions') }}
+        <PhCaretDown :size="12" class="ml-auto transition-transform group-open:rotate-180" />
+      </summary>
+      <div class="border-t border-border p-3">
         <label class="field-label !mb-0">
           <span>{{ t('workspace.opSettings.deleteTiming') }}</span>
           <select
@@ -677,18 +674,17 @@ function removeExclude(i: number) {
           </select>
         </label>
       </div>
-    </section>
+    </details>
 
-    <!-- Bisync options -->
-    <section v-if="isBi" class="border-2 border-border">
-      <div
-        class="flex items-center gap-2 border-b-2 border-border border-l-4 border-l-[var(--color-danger,#d33682)] bg-bg-secondary px-3 py-2"
+    <!-- Bisync options — collapsed until opened -->
+    <details v-if="isBi" class="group rounded-md border border-border">
+      <summary
+        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-danger,#d33682)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
       >
-        <span class="text-xs font-bold uppercase tracking-wide">{{
-          t('workspace.opSettings.bisyncOptions')
-        }}</span>
-      </div>
-      <div class="space-y-3 p-3">
+        {{ t('workspace.opSettings.bisyncOptions') }}
+        <PhCaretDown :size="12" class="ml-auto transition-transform group-open:rotate-180" />
+      </summary>
+      <div class="space-y-3 border-t border-border p-3">
         <label class="field-label !mb-0">
           <span>{{ t('workspace.opSettings.conflictResolution') }}</span>
           <select
@@ -761,6 +757,6 @@ function removeExclude(i: number) {
           </div>
         </details>
       </div>
-    </section>
+    </details>
   </div>
 </template>

@@ -99,6 +99,25 @@ func (e *Engine) Status(flowID string) string {
 	return "idle"
 }
 
+// Statuses returns every flow that is running or has a retained terminal
+// status. Idle-never-run flows are omitted. The map is a copy.
+func (e *Engine) Statuses() map[string]string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	out := make(map[string]string, len(e.runs)+len(e.lastStatus))
+	for id, s := range e.lastStatus {
+		if s != "" {
+			out[id] = s
+		}
+	}
+	for id, r := range e.runs {
+		if r != nil && r.status != "" {
+			out[id] = r.status
+		}
+	}
+	return out
+}
+
 // Execute starts sequential execution of a flow's operations in a goroutine.
 // The load uses ctx; the background run uses an independent cancellable
 // context so HTTP request cancellation does not abort the flow.
@@ -240,5 +259,3 @@ func friendlyTaskErr(err error) string {
 	}
 	return s
 }
-
-

@@ -1,8 +1,14 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useApi } from '@/composables/useApi'
-import type { FileTransferInfo, Flow, FlowOpSyncStatus, Operation } from '@/api/types'
+import type { Flow, FlowOpSyncStatus, Operation, RuntimeSnapshot } from '@/api/types'
 import { normalizeFlowAction } from '@/constants/forms'
+import {
+  applyRuntimeSnapshot,
+  progressEventToOpStatus,
+  syncSnapEqual,
+  type RuntimeLogEntry,
+} from '@/lib/runtimeSync'
 
 function newId(): string {
   return crypto.randomUUID()
@@ -15,7 +21,7 @@ export function emptyOperation(): Operation {
     source_remote: '',
     source_path: '/',
     target_remote: '',
-    target_path: '/',
+    target_path: '/out',
     action: 'push',
     sync_config: { action: 'push' },
     is_expanded: true,
@@ -64,62 +70,7 @@ export function emptyFlow(): Flow {
   }
 }
 
-export interface FlowRunLogEntry {
-  at: number
-  status: string
-  opId?: string
-  error?: string
-  /** Short human label, e.g. "Flow" or "Op #2". */
-  label?: string
-}
-
-function parseTransfers(
-  raw: unknown,
-  prev?: FileTransferInfo[],
-): FileTransferInfo[] | undefined {
-  if (!Array.isArray(raw)) return prev
-  const out: FileTransferInfo[] = []
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue
-    const o = item as Record<string, unknown>
-    const name = String(o.name ?? '')
-    if (!name) continue
-    out.push({
-      name,
-      size: Number(o.size ?? 0),
-      bytes: Number(o.bytes ?? 0),
-      progress: Number(o.progress ?? 0),
-      status: String(o.status ?? 'completed'),
-      speed: o.speed != null ? Number(o.speed) : undefined,
-      error: o.error ? String(o.error) : undefined,
-    })
-  }
-  return out
-}
-
-/** Cheap equality for progress snapshots — avoid Pinia churn every SSE frame. */
-function syncSnapEqual(a: FlowOpSyncStatus, b: FlowOpSyncStatus): boolean {
-  if (a.status !== b.status || a.op_id !== b.op_id) return false
-  if (Math.round(a.progress) !== Math.round(b.progress)) return false
-  if (a.files_transferred !== b.files_transferred) return false
-  if (a.bytes_transferred !== b.bytes_transferred) return false
-  if (a.checks !== b.checks || a.errors !== b.errors) return false
-  if (a.speed_bps !== b.speed_bps) return false
-  if (a.current_file !== b.current_file) return false
-  const at = a.transfers ?? []
-  const bt = b.transfers ?? []
-  if (at.length !== bt.length) return false
-  for (let i = 0; i < at.length; i++) {
-    if (
-      at[i].name !== bt[i].name ||
-      at[i].status !== bt[i].status ||
-      Math.round(at[i].progress) !== Math.round(bt[i].progress)
-    ) {
-      return false
-    }
-  }
-  return true
-}
+export type FlowRunLogEntry = RuntimeLogEntry
 
 export const useFlowsStore = defineStore('flows', () => {
   const api = useApi()
@@ -134,7 +85,7 @@ export const useFlowsStore = defineStore('flows', () => {
    * Keyed by flow id. busyKey on backend is `${flowId}:${opId}`.
    */
   const opSyncStatus = ref<Record<string, FlowOpSyncStatus>>({})
-  let pollTimer: ReturnType<typeof setInterval> | null = null
+  const runtimeRevision = ref(-1)
 
   const runningFlowIds = computed(() => {
     const s = new Set<string>()
@@ -185,186 +136,71 @@ export const useFlowsStore = defineStore('flows', () => {
 
   /** Map syncengine SSE (profile_id = flowId:opId) onto Wails-style status. */
   function applySyncProgress(topic: string, data: Record<string, unknown>) {
-    const profile = String(data.profile_id ?? '')
-    const colon = profile.indexOf(':')
-    if (colon <= 0) return // not a flow path-sync (e.g. profile name)
-    const flowId = profile.slice(0, colon)
-    const opId = profile.slice(colon + 1)
-    if (!flowId || !opId) return
+    const prev = (() => {
+      const profile = String(data.profile_id ?? '')
+      const colon = profile.indexOf(':')
+      if (colon <= 0) return undefined
+      return opSyncStatus.value[profile.slice(0, colon)]
+    })()
+    const snap = progressEventToOpStatus(topic, data, prev)
+    if (!snap) return
+    const { flow_id: flowId, op_id: opId, status } = snap
 
-    const knownFlow = items.value.some((f) => f.id === flowId) || !!runStatus.value[flowId]
-    if (!knownFlow && topic === 'sync:started') {
-      // still accept if we're about to track it
-    }
-
-    const prev = opSyncStatus.value[flowId]
-    const transferred = Number(data.transferred ?? data.bytes ?? prev?.bytes_transferred ?? 0)
-    const total = Number(data.total ?? data.bytes_total ?? prev?.total_bytes ?? 0)
-    const filesXfer = Number(data.files_transferred ?? prev?.files_transferred ?? 0)
-    const filesTotal = Number(data.total_files ?? prev?.total_files ?? 0)
-    let progress = 0
-    if (total > 0) progress = Math.min(100, (transferred / total) * 100)
-    else if (filesTotal > 0) progress = Math.min(100, (filesXfer / filesTotal) * 100)
-    else if (topic === 'sync:completed') progress = 100
-    else if (prev) progress = prev.progress
-
-    let status: FlowOpSyncStatus['status'] = 'running'
-    if (topic === 'sync:completed') {
-      status = 'completed'
-    } else if (topic === 'sync:failed') {
-      // Backend may publish cancelled under the failed topic with state=cancelled.
-      const st = String(data.state ?? 'failed')
-      status = st === 'cancelled' ? 'cancelled' : 'failed'
-    } else if (String(data.state ?? '') === 'cancelled') {
-      status = 'cancelled'
-    } else if (String(data.state ?? '') === 'failed') {
-      status = 'failed'
-    } else if (String(data.state ?? '') === 'completed') {
-      // Final progress frame before sync:completed carries full transfer list.
-      status = 'completed'
-    }
-
-    const transfers = parseTransfers(data.transfers, prev?.transfers)
-
-    const snap: FlowOpSyncStatus = {
-      flow_id: flowId,
-      op_id: opId,
-      task_id: data.task_id ? String(data.task_id) : prev?.task_id,
-      action: String(data.action ?? prev?.action ?? 'push'),
-      status,
-      progress,
-      speed_bps: Number(data.bytes_per_sec ?? prev?.speed_bps ?? 0),
-      eta_secs: Number(data.eta_secs ?? prev?.eta_secs ?? 0),
-      files_transferred: Number(data.files_transferred ?? prev?.files_transferred ?? 0),
-      total_files: Number(data.total_files ?? prev?.total_files ?? 0),
-      bytes_transferred: transferred,
-      total_bytes: total,
-      current_file: String(data.current_file ?? prev?.current_file ?? ''),
-      errors: Number(data.errors ?? prev?.errors ?? 0),
-      checks: Number(data.checks ?? prev?.checks ?? 0),
-      total_checks: Number(data.total_checks ?? prev?.total_checks ?? 0),
-      deletes: Number(data.deletes ?? prev?.deletes ?? 0),
-      renames: Number(data.renames ?? prev?.renames ?? 0),
-      transfers,
-      error_message: data.error_message ? String(data.error_message) : prev?.error_message,
-      updated_at: Date.now(),
-    }
-
-    // Skip store write when snapshot is effectively unchanged (cuts re-renders).
-    if (prev && syncSnapEqual(prev, snap)) {
-      return
-    }
+    if (prev && syncSnapEqual(prev, snap)) return
     opSyncStatus.value = { ...opSyncStatus.value, [flowId]: snap }
 
-    // Only push op/flow lifecycle when status or active op changes —
-    // NOT on every progress/bytes tick (that rewrote items[] and forced tab reset).
     const prevOpStatus = items.value
       .find((f) => f.id === flowId)
       ?.operations?.find((o) => o.id === opId)?.status
     const lifecycleChanged =
-      !prev ||
-      prev.status !== status ||
-      prev.op_id !== opId ||
-      prevOpStatus !== status
-
+      !prev || prev.status !== status || prev.op_id !== opId || prevOpStatus !== status
     if (!lifecycleChanged) return
 
-    if (status === 'running') {
-      applyRunEvent(flowId, 'running', opId)
-    } else if (status === 'failed') {
-      applyRunEvent(flowId, 'failed', opId, snap.error_message)
-    } else if (status === 'completed') {
-      applyRunEvent(flowId, 'completed', opId)
-    } else if (status === 'cancelled') {
-      applyRunEvent(flowId, 'cancelled', opId)
-    }
+    if (status === 'running') applyRunEvent(flowId, 'running', opId)
+    else if (status === 'failed') applyRunEvent(flowId, 'failed', opId, snap.error_message)
+    else if (status === 'completed') applyRunEvent(flowId, 'completed', opId)
+    else if (status === 'cancelled') applyRunEvent(flowId, 'cancelled', opId)
   }
 
-  function ensurePoll() {
-    if (pollTimer != null) return
-    pollTimer = setInterval(() => {
-      void pollRunning()
-    }, 1_200)
+  function hydrateRuntime(snap: RuntimeSnapshot) {
+    const rev = Number(snap.revision ?? 0)
+    if (runtimeRevision.value >= 0 && rev < runtimeRevision.value) return
+    const empty = !(snap.flows ?? []).length
+    const locallyRunning = Object.values(runStatus.value).some(
+      (s) => s === 'running' || s === 'cancelling',
+    )
+    if (empty && locallyRunning && rev <= Math.max(runtimeRevision.value, 0)) return
+    const next = applyRuntimeSnapshot(snap, items.value)
+    runtimeRevision.value = next.revision
+    runStatus.value = next.runStatus
+    lastError.value = next.lastError
+    runLog.value = next.runLog
+    opSyncStatus.value = next.opSyncStatus
+    if (items.value.length) items.value = next.items
   }
 
-  function stopPollIfIdle() {
-    if (runningFlowIds.value.size > 0) return
-    if (pollTimer != null) {
-      clearInterval(pollTimer)
-      pollTimer = null
+  async function pullRuntime() {
+    try {
+      const snap = await api.get<RuntimeSnapshot>('/api/v1/runtime')
+      hydrateRuntime(snap)
+    } catch {
+      /* locked / offline */
     }
-  }
-
-  async function pollRunning() {
-    const ids = [...runningFlowIds.value]
-    if (!ids.length) {
-      stopPollIfIdle()
-      return
-    }
-    for (const id of ids) {
-      try {
-        const remote = await api.get<Flow>(`/api/v1/flows/${encodeURIComponent(id)}`)
-        const st = (remote?.status || 'idle').toLowerCase()
-        if (st === 'running' || st === 'cancelling') {
-          applyRunEvent(id, st)
-          continue
-        }
-        // Prefer explicit terminal status retained by flowengine.lastStatus.
-        if (st === 'completed' || st === 'failed' || st === 'cancelled') {
-          applyRunEvent(id, st)
-          continue
-        }
-        // Fallback: engine reported idle while UI still thinks running.
-        // Infer from last op sync snapshot — never assume success blindly.
-        if (st === 'idle' && isFlowRunning(id)) {
-          const snap = opSyncStatus.value[id]
-          if (snap?.status === 'failed') {
-            applyRunEvent(id, 'failed', undefined, snap.error_message)
-          } else if (snap?.status === 'cancelled') {
-            applyRunEvent(id, 'cancelled')
-          } else {
-            applyRunEvent(id, 'completed')
-          }
-        }
-      } catch {
-        /* ignore poll errors while locked/offline */
-      }
-    }
-    stopPollIfIdle()
   }
 
   async function load() {
-    // Preserve in-memory runtime op statuses across reloads (server does not store them).
-    const prevOpStatus = new Map<string, Map<string, string>>()
-    for (const f of items.value) {
-      const m = new Map<string, string>()
-      for (const op of f.operations ?? []) {
-        if (op.status && op.status !== 'idle') m.set(op.id, op.status)
-      }
-      if (m.size) prevOpStatus.set(f.id, m)
-    }
-
     const list = (await api.get<Flow[]>('/api/v1/flows')) ?? []
-    items.value = list.map((f) => {
-      const runtime = runStatus.value[f.id]
-      const opPrev = prevOpStatus.get(f.id)
-      return {
-        ...f,
-        operations: (f.operations ?? []).map((op) => {
-          const synced = withSyncedAction(op)
-          return {
-            ...synced,
-            status: opPrev?.get(op.id) || synced.status || 'idle',
-          }
-        }),
-        schedule_enabled: f.schedule_enabled ?? f.enabled ?? false,
-        enabled: f.schedule_enabled ?? f.enabled ?? false,
-        schedule_cron: f.schedule_cron || f.cron_expr || '',
-        cron_expr: f.cron_expr || f.schedule_cron || '',
-        status: runtime || f.status || 'idle',
-        last_error: lastError.value[f.id],
-      }
-    })
+    items.value = list.map((f) => ({
+      ...f,
+      operations: (f.operations ?? []).map((op) => withSyncedAction(op)),
+      schedule_enabled: f.schedule_enabled ?? f.enabled ?? false,
+      enabled: f.schedule_enabled ?? f.enabled ?? false,
+      schedule_cron: f.schedule_cron || f.cron_expr || '',
+      cron_expr: f.cron_expr || f.schedule_cron || '',
+      status: runStatus.value[f.id] || f.status || 'idle',
+      last_error: lastError.value[f.id] || f.last_error,
+    }))
+    await pullRuntime()
   }
 
   async function save(f: Flow) {
@@ -421,7 +257,6 @@ export const useFlowsStore = defineStore('flows', () => {
       )
     }
     appendLog(id, { at: Date.now(), status: 'running', label: 'Flow' })
-    ensurePoll()
     try {
       await api.post(`/api/v1/flows/${encodeURIComponent(id)}/execute`)
     } catch (e) {
@@ -434,7 +269,6 @@ export const useFlowsStore = defineStore('flows', () => {
           i === idx ? { ...x, status: 'failed', last_error: msg } : x,
         )
       }
-      stopPollIfIdle()
       throw e
     }
   }
@@ -447,11 +281,10 @@ export const useFlowsStore = defineStore('flows', () => {
       items.value = items.value.map((x, i) => (i === idx ? { ...x, status: 'cancelling' } : x))
     }
     await api.post(`/api/v1/flows/${encodeURIComponent(id)}/stop`)
-    ensurePoll()
   }
 
   /**
-   * Apply a flow / operation runtime event from SSE or poll.
+   * Apply a flow / operation runtime event from SSE or a runtime snapshot.
    * Operation-level "completed" must NOT mark the whole flow completed —
    * only flow-level events (no opId) set the terminal flow status.
    */
@@ -539,8 +372,6 @@ export const useFlowsStore = defineStore('flows', () => {
       } else if (status === 'failed' || status === 'cancelled') {
         setRunStatus(flowId, status)
       }
-      if (status === 'running' || status === 'cancelling') ensurePoll()
-      else stopPollIfIdle()
       return
     }
 
@@ -586,8 +417,6 @@ export const useFlowsStore = defineStore('flows', () => {
         : x,
     )
 
-    if (flowStatus === 'running' || flowStatus === 'cancelling') ensurePoll()
-    else stopPollIfIdle()
   }
 
   return {
@@ -607,6 +436,9 @@ export const useFlowsStore = defineStore('flows', () => {
     remove,
     execute,
     stop,
+    hydrateRuntime,
+    pullRuntime,
+    runtimeRevision,
     applyRunEvent,
     applySyncProgress,
     emptyFlow,

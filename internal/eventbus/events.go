@@ -92,9 +92,9 @@ type AuthLockedEvent struct {
 // ServiceStatusEvent is emitted on service state changes.
 type ServiceStatusEvent struct {
 	eventBase
-	Running  bool `json:"running"`
-	WebPort  int  `json:"web_port"`
-	UptimeSecs int `json:"uptime_secs"`
+	Running    bool `json:"running"`
+	WebPort    int  `json:"web_port"`
+	UptimeSecs int  `json:"uptime_secs"`
 }
 
 // --- Schedule events -------------------------------------------------------
@@ -132,8 +132,59 @@ type FlowExecutionEvent struct {
 
 // --- State events ----------------------------------------------------------
 
-// StateChangedEvent is emitted when app-wide state (config, remotes) changes.
+// StateChangedEvent is emitted when persisted document state changes.
+// Domain is flows | remotes | profiles | settings. ID is the entity when known.
 type StateChangedEvent struct {
 	eventBase
-	Domain string `json:"domain"` // config, remotes, profiles
+	Domain string `json:"domain"`
+	ID     string `json:"id,omitempty"`
+}
+
+// --- Runtime snapshot ------------------------------------------------------
+
+// RuntimeLogEntry is one line of a flow run log (mirrors the SPA panel).
+type RuntimeLogEntry struct {
+	At     int64  `json:"at"`
+	Status string `json:"status"`
+	OpID   string `json:"op_id,omitempty"`
+	Error  string `json:"error,omitempty"`
+	Label  string `json:"label,omitempty"`
+}
+
+// RuntimeOpState is the last known lifecycle status of one operation.
+type RuntimeOpState struct {
+	ID        string `json:"id"`
+	Status    string `json:"status"`
+	LastError string `json:"last_error,omitempty"`
+}
+
+// RuntimeFlowState is the backend-owned runtime view of one flow.
+type RuntimeFlowState struct {
+	ID        string             `json:"id"`
+	Status    string             `json:"status"`
+	LastError string             `json:"last_error,omitempty"`
+	Ops       []RuntimeOpState   `json:"ops,omitempty"`
+	Sync      *SyncProgressEvent `json:"sync,omitempty"`
+	Log       []RuntimeLogEntry  `json:"log,omitempty"`
+}
+
+// RuntimeSnapshotEvent is the full runtime projection. Sent as the first SSE
+// frame on connect and as GET /api/v1/runtime so a reload can hydrate
+// without waiting for the next live tick.
+type RuntimeSnapshotEvent struct {
+	eventBase
+	Revision int64              `json:"revision"`
+	Flows    []RuntimeFlowState `json:"flows"`
+}
+
+// NewRuntimeSnapshot builds a snapshot event with type/timestamp set.
+func NewRuntimeSnapshot(revision int64, flows []RuntimeFlowState) RuntimeSnapshotEvent {
+	if flows == nil {
+		flows = []RuntimeFlowState{}
+	}
+	return RuntimeSnapshotEvent{
+		eventBase: eventBase{Type: TopicRuntimeSnapshot, Timestamp: time.Now()},
+		Revision:  revision,
+		Flows:     flows,
+	}
 }

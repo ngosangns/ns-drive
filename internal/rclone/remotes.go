@@ -86,9 +86,24 @@ func (c *Client) CreateRemote(ctx context.Context, name, remoteType string, conf
 	for _, kv := range configKVs {
 		args = append(args, kv)
 	}
-	args = append(args, "--config", c.config)
+	// Obscure password-like values (mega pass, sftp pass, …) the same way
+	// rclone config does interactively.
+	args = append(args, "--obscure", "--config", c.config)
 	_, err := c.run(ctx, nil, args...)
 	return err
+}
+
+// CreateRemoteVerified creates a remote then probes it (lsd). On probe
+// failure the remote is deleted so an unauthenticated entry is never kept.
+func (c *Client) CreateRemoteVerified(ctx context.Context, name, remoteType string, configKVs []string) error {
+	if err := c.CreateRemote(ctx, name, remoteType, configKVs); err != nil {
+		return err
+	}
+	if err := c.TestRemote(ctx, name); err != nil {
+		_ = c.DeleteRemote(ctx, name)
+		return fmt.Errorf("auth failed: %w", err)
+	}
+	return nil
 }
 
 // DeleteRemote removes a remote.

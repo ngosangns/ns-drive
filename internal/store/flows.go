@@ -19,7 +19,7 @@ func (s *Store) Flows() FlowRepo { return FlowRepo{s: s} }
 
 func (r FlowRepo) List(ctx context.Context) ([]Flow, error) {
 	rows, err := r.s.db.QueryContext(ctx,
-		`SELECT id, name, is_collapsed, schedule_enabled, cron_expr, sort_order, created_at, updated_at
+		`SELECT id, name, is_collapsed, schedule_enabled, cron_expr, sort_order, created_at, updated_at, canvas_json
 		 FROM flows ORDER BY sort_order, name`)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (r FlowRepo) List(ctx context.Context) ([]Flow, error) {
 
 func (r FlowRepo) Get(ctx context.Context, id string) (*Flow, error) {
 	row := r.s.db.QueryRowContext(ctx,
-		`SELECT id, name, is_collapsed, schedule_enabled, cron_expr, sort_order, created_at, updated_at
+		`SELECT id, name, is_collapsed, schedule_enabled, cron_expr, sort_order, created_at, updated_at, canvas_json
 		 FROM flows WHERE id = ?`, id)
 	f, err := scanFlow(row)
 	if err != nil {
@@ -73,8 +73,8 @@ func (r FlowRepo) Get(ctx context.Context, id string) (*Flow, error) {
 func scanFlow(r rowScanner) (*Flow, error) {
 	var f Flow
 	var collapsed, schedEnabled, sortOrder int
-	var cron, createdAt, updatedAt sql.NullString
-	if err := r.Scan(&f.ID, &f.Name, &collapsed, &schedEnabled, &cron, &sortOrder, &createdAt, &updatedAt); err != nil {
+	var cron, createdAt, updatedAt, canvas sql.NullString
+	if err := r.Scan(&f.ID, &f.Name, &collapsed, &schedEnabled, &cron, &sortOrder, &createdAt, &updatedAt, &canvas); err != nil {
 		return nil, err
 	}
 	f.IsCollapsed = collapsed != 0
@@ -90,6 +90,9 @@ func scanFlow(r rowScanner) (*Flow, error) {
 	}
 	if updatedAt.Valid {
 		f.UpdatedAt = updatedAt.String
+	}
+	if canvas.Valid && canvas.String != "" {
+		f.CanvasJSON = json.RawMessage(canvas.String)
 	}
 	if f.Operations == nil {
 		f.Operations = []Operation{}
@@ -155,15 +158,16 @@ func (r FlowRepo) Save(ctx context.Context, f *Flow) error {
 	defer func() { _ = tx.Rollback() }()
 
 	_, err = tx.ExecContext(ctx,
-		`INSERT INTO flows (id, name, is_collapsed, schedule_enabled, cron_expr, sort_order, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, COALESCE(NULLIF(?, ''), datetime('now')), datetime('now'))
+		`INSERT INTO flows (id, name, is_collapsed, schedule_enabled, cron_expr, sort_order, created_at, updated_at, canvas_json)
+		 VALUES (?, ?, ?, ?, ?, ?, COALESCE(NULLIF(?, ''), datetime('now')), datetime('now'), ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   name=excluded.name, is_collapsed=excluded.is_collapsed,
 		   schedule_enabled=excluded.schedule_enabled, cron_expr=excluded.cron_expr,
-		   sort_order=excluded.sort_order, updated_at=datetime('now')`,
+		   sort_order=excluded.sort_order, updated_at=datetime('now'),
+		   canvas_json=excluded.canvas_json`,
 		// cron_expr is NOT NULL DEFAULT ''; never pass SQL NULL via nullableString.
 		f.ID, f.Name, boolToInt(f.IsCollapsed), boolToInt(schedEnabled),
-		cron, f.SortOrder, f.CreatedAt)
+		cron, f.SortOrder, f.CreatedAt, canvasJSONOrEmpty(f.CanvasJSON))
 	if err != nil {
 		return err
 	}
@@ -201,6 +205,13 @@ func (r FlowRepo) Save(ctx context.Context, f *Flow) error {
 	}
 
 	return tx.Commit()
+}
+
+func canvasJSONOrEmpty(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return "{}"
+	}
+	return string(raw)
 }
 
 func nullIfEmpty(s, def string) string {

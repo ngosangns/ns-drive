@@ -46,7 +46,7 @@ async function submit() {
     class="flex min-h-full w-full items-center justify-center bg-bg p-6"
     data-testid="page-unlock"
   >
-    <div class="w-full max-w-[380px] rounded-[10px] border border-border bg-surface px-7 py-8">
+    <div class="w-full max-w-[380px] rounded-md border border-border bg-surface px-7 py-8 shadow-[var(--shadow-paper)]">
       <div class="mb-6 flex items-center gap-2.5">
         <div
           class="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-[13px] font-bold text-white"

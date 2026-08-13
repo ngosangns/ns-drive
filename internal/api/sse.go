@@ -58,6 +58,14 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	subs := make([]func(), 0, len(topics))
 	ctx := r.Context()
 
+	if s.app == nil || s.app.Bus == nil {
+		_ = writeSSEEvent(w, flusher, eventbus.TopicRuntimeSnapshot, s.runtimeSnapshot(), &writeMu)
+		<-ctx.Done()
+		return
+	}
+
+	// Subscribe before taking the snapshot so events that land during the
+	// snapshot write stay in the subscriber buffer and follow it on the wire.
 	for _, t := range topics {
 		topic := t
 		cancel := s.app.Bus.Subscribe(topic, makeSSEHandlerFn(w, flusher, topic, s.log, &writeMu))
@@ -68,6 +76,8 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 			c()
 		}
 	}()
+
+	_ = writeSSEEvent(w, flusher, eventbus.TopicRuntimeSnapshot, s.runtimeSnapshot(), &writeMu)
 
 	heartbeat := sseNewTickerFn(sseHeartbeatInterval)
 	defer heartbeat.Stop()
@@ -93,19 +103,32 @@ func makeSSEHandler(w http.ResponseWriter, flusher http.Flusher, topic string, l
 // makeSSEHandlerFn is overridable for tests.
 var makeSSEHandlerFn = func(w http.ResponseWriter, flusher http.Flusher, topic string, log *slog.Logger, writeMu *sync.Mutex) func(eventbus.Event) {
 	return func(ev eventbus.Event) {
-		data, err := json.Marshal(ev)
-		if err != nil {
+		if err := writeSSEEvent(w, flusher, topic, ev, writeMu); err != nil {
 			log.Warn("sse: marshal event", "topic", topic, "err", err)
-			return
 		}
-		if writeMu != nil {
-			writeMu.Lock()
-			defer writeMu.Unlock()
-		}
-		_, _ = fmt.Fprintf(w, "event: %s\n", topic)
-		_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
-		flusher.Flush()
 	}
+}
+
+func writeSSEEvent(w http.ResponseWriter, flusher http.Flusher, topic string, ev any, writeMu *sync.Mutex) error {
+	data, err := json.Marshal(ev)
+	if err != nil {
+		return err
+	}
+	if writeMu != nil {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+	}
+	_, _ = fmt.Fprintf(w, "event: %s\n", topic)
+	_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
+	flusher.Flush()
+	return nil
+}
+
+func (s *Server) runtimeSnapshot() eventbus.RuntimeSnapshotEvent {
+	if s.app != nil && s.app.Runtime != nil {
+		return s.app.Runtime.Snapshot()
+	}
+	return eventbus.NewRuntimeSnapshot(0, nil)
 }
 
 // handleStatus returns the current app status (auth state + version).

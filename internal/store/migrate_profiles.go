@@ -45,3 +45,7 @@ func (s *Store) migrateProfilesNewColumns(ctx context.Context) {
 		_, _ = s.db.ExecContext(ctx, ddl)
 	}
 }
+
+func (s *Store) migrateFlowsCanvasJSON(ctx context.Context) {
+	_, _ = s.db.ExecContext(ctx, `ALTER TABLE flows ADD COLUMN canvas_json TEXT NOT NULL DEFAULT '{}'`)
+}
