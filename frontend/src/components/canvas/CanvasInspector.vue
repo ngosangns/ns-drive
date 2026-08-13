@@ -14,6 +14,7 @@ import OperationSettingsPanel from '@/components/flows/OperationSettingsPanel.vu
 import WorkspaceRemotesSection from '@/components/workspace/WorkspaceRemotesSection.vue'
 import { composeOp, parseComposed } from '@/lib/remotePath'
 import { resolveOpAction } from '@/stores/flows'
+import { isActiveRun } from '@/lib/runChrome'
 import type { FlowAction } from '@/constants/forms'
 
 const { t } = useI18n()
@@ -51,8 +52,7 @@ const targetNode = computed(() => {
 const running = computed(() => {
   const id = activeFlow.value?.id
   if (!id) return false
-  const st = runStatus.value[id] || activeFlow.value?.status
-  return st === 'running' || st === 'cancelling'
+  return isActiveRun(runStatus.value[id] || activeFlow.value?.status)
 })
 
 async function onRun() {

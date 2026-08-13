@@ -44,6 +44,7 @@ tasks:
       - go test -race -coverprofile=coverage.out ./...
       - go tool cover -html=coverage.out -o coverage.html
       - cd frontend && pnpm run type-check
+      - cd frontend && pnpm run test:unit
       - cd frontend && pnpm run test:e2e:coverage
 
   lint:

@@ -18,6 +18,7 @@ import (
 
 	"github.com/gnasdev/gn-drive/internal/auth"
 	"github.com/gnasdev/gn-drive/internal/eventbus"
+	"github.com/gnasdev/gn-drive/internal/flowengine"
 	"github.com/gnasdev/gn-drive/internal/rclone"
 	"github.com/gnasdev/gn-drive/internal/store"
 	"github.com/gnasdev/gn-drive/internal/syncengine"
@@ -779,5 +780,58 @@ func TestSSE_FirstEventIsRuntimeSnapshot(t *testing.T) {
 	idxHeart := strings.Index(body, ": heartbeat")
 	if idxHeart >= 0 && idxHeart < idxSnap {
 		t.Fatalf("heartbeat before snapshot: %q", body)
+	}
+}
+
+func TestUpdateFlow_ConflictWhenRunning(t *testing.T) {
+	bin := filepath.Join(t.TempDir(), "rclone")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\nsleep 20\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srv, cleanup := newTestServerWithRclone(t, bin)
+	defer cleanup()
+
+	fe := flowengine.New(flowengine.Options{
+		Store: srv.app.Store,
+		Sync:  srv.app.SyncEngine,
+		Bus:   srv.app.Bus,
+		Log:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	srv.app.FlowEngine = fe
+
+	src := t.TempDir()
+	dst := t.TempDir()
+	body := map[string]any{
+		"id":   "flow-busy",
+		"name": "busy",
+		"operations": []map[string]any{{
+			"id":          "op1",
+			"source_path": src,
+			"target_path": dst,
+			"action":      "push",
+		}},
+	}
+	rr := doRequest(srv, "POST", "/api/v1/flows", body, "")
+	if rr.Code != http.StatusCreated && rr.Code != http.StatusOK {
+		t.Fatalf("create flow: %d %s", rr.Code, rr.Body.String())
+	}
+	if err := srv.app.SyncEngine.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := fe.Execute(context.Background(), "flow-busy"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = fe.Stop("flow-busy") })
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && !fe.IsRunning("flow-busy") {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !fe.IsRunning("flow-busy") {
+		t.Fatal("flow did not start")
+	}
+
+	rr = doRequest(srv, "PUT", "/api/v1/flows/flow-busy", body, "")
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("update running flow: status=%d body=%s", rr.Code, rr.Body.String())
 	}
 }

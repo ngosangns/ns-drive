@@ -11,6 +11,7 @@ import {
   type GraphNode,
 } from '@/lib/flowGraph'
 import { emptyFlow, emptyOperation, useFlowsStore, withSyncedAction } from '@/stores/flows'
+import { isActiveRun } from '@/lib/runChrome'
 
 export type CanvasSelection =
   | { kind: 'flow' }
@@ -61,7 +62,8 @@ export const useCanvasStore = defineStore('canvas', () => {
   }
 
   function flowLocked(flow = activeFlow.value) {
-    return !!flow && flows.isFlowRunning(flow.id)
+    if (!flow) return false
+    return isActiveRun(flows.flowStatusOf(flow.id))
   }
 
   async function persist(next?: FlowGraph, flow = activeFlow.value) {

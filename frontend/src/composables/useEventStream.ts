@@ -6,12 +6,19 @@ import { onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 import { useFlowsStore } from '@/stores/flows'
 import { useRemotesStore } from '@/stores/remotes'
 import { useCanvasStore } from '@/stores/canvas'
-import { shouldApplyLiveEvent } from '@/lib/runtimeSync'
-import type { RuntimeSnapshot } from '@/api/types'
-
-const SYNC_TOPICS = ['sync:started', 'sync:progress', 'sync:completed', 'sync:failed'] as const
-const FLOW_RUN_TOPIC = 'flow:execution'
-const LEGACY_FLOW_TOPIC = 'board:execution'
+import {
+  FLOW_RUN_TOPIC,
+  LEGACY_FLOW_TOPIC,
+  SYNC_TOPICS,
+  acceptLive,
+  isFlowTopic,
+  isSyncTopic,
+  parseFlowPayload,
+  parseJsonObject,
+  parseSnapshot,
+  shouldReloadFlows,
+  shouldReloadRemotes,
+} from '@/lib/sseRuntime'
 
 export type UseEventStreamOptions = {
   enabled?: Ref<boolean>
@@ -26,18 +33,9 @@ export function useEventStream(opts: UseEventStreamOptions = {}) {
   let intentionalClose = false
 
   function applyFlowPayload(data: Record<string, unknown>) {
-    const id = String(data.flow_id ?? data.board_id ?? '')
-    const status = String(data.status ?? '')
-    const opId = data.op_id
-      ? String(data.op_id)
-      : data.node_id
-        ? String(data.node_id)
-        : undefined
-    let error: string | undefined
-    if (data.error) error = String(data.error)
-    else if (status === 'failed' && data.action) error = String(data.action)
-    if (!id || !status) return
-    flows.applyRunEvent(id, status, opId || undefined, error)
+    const parsed = parseFlowPayload(data)
+    if (!parsed) return
+    flows.applyRunEvent(parsed.id, parsed.status, parsed.opId, parsed.error)
   }
 
   function connect() {
@@ -50,17 +48,15 @@ export function useEventStream(opts: UseEventStreamOptions = {}) {
     const queued: Array<{ topic: string; data: Record<string, unknown> }> = []
 
     function handleLive(topic: string, data: Record<string, unknown>) {
-      if (!shouldApplyLiveEvent(snapshotSeen, flows.runtimeRevision, data.revision)) {
+      if (!acceptLive(snapshotSeen, Number(flows.runtimeRevision ?? 0), data)) {
         if (!snapshotSeen) queued.push({ topic, data })
         return
       }
-      if ((SYNC_TOPICS as readonly string[]).includes(topic)) {
+      if (isSyncTopic(topic)) {
         flows.applySyncProgress(topic, data)
         return
       }
-      if (topic === FLOW_RUN_TOPIC || topic === LEGACY_FLOW_TOPIC) {
-        applyFlowPayload(data)
-      }
+      if (isFlowTopic(topic)) applyFlowPayload(data)
     }
 
     es = new EventSource('/api/v1/events')
@@ -77,12 +73,8 @@ export function useEventStream(opts: UseEventStreamOptions = {}) {
     }
 
     es.addEventListener('runtime:snapshot', (ev) => {
-      let data: RuntimeSnapshot = {}
-      try {
-        data = JSON.parse((ev as MessageEvent).data) as RuntimeSnapshot
-      } catch {
-        return
-      }
+      const data = parseSnapshot((ev as MessageEvent).data)
+      if (!data) return
       flows.hydrateRuntime(data)
       snapshotSeen = true
       const pending = queued.splice(0)
@@ -90,46 +82,26 @@ export function useEventStream(opts: UseEventStreamOptions = {}) {
     })
 
     es.addEventListener('state:changed', (ev) => {
-      let data: Record<string, unknown> = {}
-      try {
-        data = JSON.parse((ev as MessageEvent).data) as Record<string, unknown>
-      } catch {
-        return
-      }
+      const data = parseJsonObject((ev as MessageEvent).data)
+      if (!data) return
       const domain = String(data.domain ?? '')
-      if (domain === 'remotes') {
+      if (shouldReloadRemotes(domain)) {
         void remotes.load()
         return
       }
-      if (domain === 'flows' || domain === '') {
-        try {
-          if (useCanvasStore().dirty) return
-        } catch {
-          /* pinia not ready */
-        }
-        void flows.load()
+      let dirty = false
+      try {
+        dirty = !!useCanvasStore().dirty
+      } catch {
+        /* pinia not ready */
       }
+      if (shouldReloadFlows(domain, dirty)) void flows.load()
     })
 
-    for (const topic of SYNC_TOPICS) {
+    for (const topic of [...SYNC_TOPICS, FLOW_RUN_TOPIC, LEGACY_FLOW_TOPIC]) {
       es.addEventListener(topic, (ev) => {
-        let data: Record<string, unknown> = {}
-        try {
-          data = JSON.parse((ev as MessageEvent).data) as Record<string, unknown>
-        } catch {
-          return
-        }
-        handleLive(topic, data)
-      })
-    }
-    for (const topic of [FLOW_RUN_TOPIC, LEGACY_FLOW_TOPIC]) {
-      es.addEventListener(topic, (ev) => {
-        let data: Record<string, unknown> = {}
-        try {
-          data = JSON.parse((ev as MessageEvent).data) as Record<string, unknown>
-        } catch {
-          return
-        }
+        const data = parseJsonObject((ev as MessageEvent).data)
+        if (!data) return
         handleLive(topic, data)
       })
     }

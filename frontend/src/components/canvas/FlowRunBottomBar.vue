@@ -15,6 +15,7 @@ import {
 } from '@phosphor-icons/vue'
 import { useCanvasStore } from '@/stores/canvas'
 import { useFlowsStore } from '@/stores/flows'
+import { runBarVisible } from '@/lib/runChrome'
 import type { FileTransferInfo } from '@/api/types'
 
 const { t } = useI18n()
@@ -29,7 +30,7 @@ const flowStatus = computed(() => {
   if (!id) return 'idle'
   return runStatus.value[id] || activeFlow.value?.status || 'idle'
 })
-const visible = computed(() => flowStatus.value === 'running' || flowStatus.value === 'cancelling')
+const visible = computed(() => runBarVisible(flowStatus.value))
 const snap = computed(() => (flowId.value ? opSyncStatus.value[flowId.value] ?? null : null))
 const transfers = computed(() => snap.value?.transfers ?? [])
 

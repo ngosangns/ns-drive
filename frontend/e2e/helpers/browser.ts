@@ -10,10 +10,19 @@ const coverageDir = path.resolve(__dirname, '../../.nyc_output')
 let browser: Browser | null = null
 let coverageSeq = 0
 
+function chromeExecutable(): string | undefined {
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH
+  const darwin = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+  if (process.platform === 'darwin' && fs.existsSync(darwin)) return darwin
+  return undefined
+}
+
 export async function getBrowser(): Promise<Browser> {
   if (browser) return browser
+  const executablePath = chromeExecutable()
   browser = await puppeteer.launch({
     headless: process.env.HEADED === '1' ? false : true,
+    executablePath,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     defaultViewport: { width: 1280, height: 800 },
     protocolTimeout: 120_000,

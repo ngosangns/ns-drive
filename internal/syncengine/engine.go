@@ -238,7 +238,15 @@ func (e *Engine) startWithProfile(ctx context.Context, action, busyKey string, p
         Status: "running",
     }
     e.active.Store(task.ID, task)
-    task.ctx, task.cancel = context.WithCancel(e.ctx)
+    parent := e.ctx
+    if parent == nil {
+        e.runningMu.Lock()
+        delete(e.running, busyKey)
+        e.runningMu.Unlock()
+        e.active.Delete(task.ID)
+        return "", ErrNotRunning
+    }
+    task.ctx, task.cancel = context.WithCancel(parent)
 
     go e.runSync(task, p, action)
 

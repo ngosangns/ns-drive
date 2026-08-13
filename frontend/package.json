@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "lint": "vue-tsc --noEmit",
     "type-check": "vue-tsc --noEmit",
+    "test:unit": "tsx --test --test-concurrency=1 src/**/*.test.ts",
     "test:e2e": "node scripts/e2e-run.mjs",
     "test:e2e:coverage": "E2E_COVERAGE=1 node scripts/e2e-run.mjs --coverage",
     "test:e2e:headed": "HEADED=1 node scripts/e2e-run.mjs"

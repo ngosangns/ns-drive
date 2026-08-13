@@ -15,6 +15,7 @@ import { storeToRefs } from 'pinia'
 import { useCanvasStore } from '@/stores/canvas'
 import { useFlowsStore } from '@/stores/flows'
 import { useToast } from '@/composables/useToast'
+import { isActiveRun } from '@/lib/runChrome'
 import { useI18n } from 'vue-i18n'
 import LocationNode from './LocationNode.vue'
 import SyncEdge from './SyncEdge.vue'
@@ -71,7 +72,7 @@ const vfEdges = computed<Edge[]>(() => {
 const running = computed(() => {
   const id = activeFlow.value?.id
   if (!id) return false
-  return flows.isFlowRunning(id)
+  return isActiveRun(flows.flowStatusOf(id))
 })
 
 function onConnect(c: Connection) {

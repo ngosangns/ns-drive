@@ -31,7 +31,8 @@ function remToPx(value: string): number {
 describe('solarized paper chrome', () => {
   const css = readSrc('styles', 'main.css')
   const topbar = readSrc('components', 'layout', 'Topbar.vue')
-  const flows = readSrc('components', 'workspace', 'WorkspaceFlowsSection.vue')
+  const rail = readSrc('components', 'canvas', 'FlowRail.vue')
+  const inspector = readSrc('components', 'canvas', 'CanvasInspector.vue')
   const pathField = readSrc('components', 'forms', 'RemotePathField.vue')
   const settings = readSrc('components', 'flows', 'OperationSettingsPanel.vue')
 
@@ -59,21 +60,20 @@ describe('solarized paper chrome', () => {
     assert.match(header, /bg-surface/)
     assert.doesNotMatch(header, /bg-accent/)
 
-    const flowHeader = /<!-- Header:[\s\S]*?<div class="([^"]+)"/.exec(flows)?.[1] ?? ''
-    assert.match(flowHeader, /bg-surface/)
-    assert.doesNotMatch(flowHeader, /bg-accent/)
+    assert.match(rail, /bg-surface/)
+    assert.doesNotMatch(rail, /bg-accent-strong/)
   })
 
-  it('keeps source and target in two columns at md+ with path + Browse on one row', () => {
-    assert.match(flows, /md:grid-cols-2/)
+  it('keeps path + Browse on one row in the inspector', () => {
     const row = /<div class="(flex min-w-0 items-center gap-1\.5)">/.exec(pathField)?.[1] ?? ''
     assert.equal(row, 'flex min-w-0 items-center gap-1.5')
     assert.doesNotMatch(pathField, /flex-wrap items-center gap-1\.5/)
     assert.match(pathField, /shrink-0 whitespace-nowrap/)
+    assert.match(inspector, /op-src-\$\{selectedEdge\.id\}/)
+    assert.match(inspector, /op-dst-\$\{selectedEdge\.id\}/)
   })
 
-  it('stacks flow actions under the title on narrow widths and collapses settings groups', () => {
-    assert.match(flows, /flex min-w-0 flex-col gap-2 sm:flex-row/)
+  it('collapses operation settings groups', () => {
     assert.match(settings, /data-testid="op-settings-panel"/)
     const groups = [
       'workspace.opSettings.performance',
@@ -122,7 +122,6 @@ describe('solarized paper chrome', () => {
       'remotes-type',
       'remotes-submit',
       'flows-add',
-      'flows-edit-name',
       'flows-name-inline',
       'flows-run',
       'nav-settings',
@@ -142,17 +141,17 @@ describe('solarized paper chrome', () => {
       readSrc('pages', 'SettingsPage.vue'),
       readSrc('components', 'layout', 'Topbar.vue'),
       readSrc('components', 'workspace', 'WorkspaceRemotesSection.vue'),
-      readSrc('components', 'canvas', 'CanvasInspector.vue'),
-      flows,
+      inspector,
+      rail,
     ].join('\n')
     for (const hook of hooks) {
       assert.match(journey, new RegExp(hook.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
       assert.match(tree, new RegExp(hook.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), hook)
     }
-    assert.match(flows, /op-src-\$\{op\.id\}/)
-    assert.match(flows, /op-dst-\$\{op\.id\}/)
-    assert.match(flows, /flows-save-bottom-\$\{f\.id\}/)
-    assert.match(flows, /flows-delete-\$\{f\.id\}/)
+    assert.match(inspector, /op-src-\$\{selectedEdge\.id\}/)
+    assert.match(inspector, /op-dst-\$\{selectedEdge\.id\}/)
+    assert.match(inspector, /flows-save-bottom-\$\{activeFlow\.id\}/)
+    assert.match(rail, /flows-delete-\$\{f\.id\}/)
     assert.match(readSrc('components', 'workspace', 'WorkspaceRemotesSection.vue'), /remote-chip-\$\{r\.name\}/)
   })
 })
