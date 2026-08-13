@@ -137,13 +137,36 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Close sqlite/rclone first. ChangePassword encrypts gn-drive.db; doing
+	// that while the data plane still holds the file yanks the live db/wal/shm
+	// and hangs later I/O (including SPA reloads).
+	if s.app.BeforeLock != nil {
+		if err := s.app.BeforeLock(); err != nil {
+			respondError(w, http.StatusInternalServerError, "lock_failed", err.Error())
+			return
+		}
+	}
+
 	if err := s.app.Auth.ChangePassword(req.OldPassword, req.NewPassword); err != nil {
+		if s.app.AfterUnlock != nil {
+			_ = s.app.AfterUnlock(r.Context())
+		}
 		respondError(w, http.StatusForbidden, "change_failed", err.Error())
 		return
 	}
+
+	// Lock so /status does not auto-resume a session and skip the unlock form.
+	if err := authLockFn(s.app.Auth); err != nil {
+		respondError(w, http.StatusInternalServerError, "lock_failed", err.Error())
+		return
+	}
+
 	// Invalidate all outstanding sessions (including the caller's) so a
 	// password change forces re-authentication everywhere.
 	sessionClearAll()
 	clearSessionCookie(w)
+	if s.app.Bus != nil {
+		s.app.Bus.Publish(eventbus.TopicAuthLocked, eventbus.AuthLockedEvent{})
+	}
 	respondOK(w, map[string]bool{"ok": true})
 }

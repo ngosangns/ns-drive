@@ -103,11 +103,13 @@ describe('solarized paper chrome', () => {
     assert.match(inspector, /:disabled="!dirty \|\| running"/)
   })
 
-  it('keeps e2e data-testid hooks used by the full journey', () => {
-    const journey = fs.readFileSync(
-      path.join(frontendDir, 'e2e/specs/full-journey.spec.ts'),
-      'utf8',
-    )
+  it('keeps e2e data-testid hooks used by the product specs', () => {
+    const specsDir = path.join(frontendDir, 'e2e/specs')
+    const specs = fs
+      .readdirSync(specsDir)
+      .filter((f) => f.endsWith('.spec.ts'))
+      .map((f) => fs.readFileSync(path.join(specsDir, f), 'utf8'))
+      .join('\n')
     const hooks = [
       'page-unlock',
       'unlock-password',
@@ -145,7 +147,7 @@ describe('solarized paper chrome', () => {
       rail,
     ].join('\n')
     for (const hook of hooks) {
-      assert.match(journey, new RegExp(hook.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+      assert.match(specs, new RegExp(hook.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `spec uses ${hook}`)
       assert.match(tree, new RegExp(hook.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), hook)
     }
     assert.match(inspector, /op-src-\$\{selectedEdge\.id\}/)

@@ -783,6 +783,28 @@ func TestSSE_FirstEventIsRuntimeSnapshot(t *testing.T) {
 	}
 }
 
+func writeLsjsonRclone(t *testing.T, payload string) string {
+	t.Helper()
+	bin := filepath.Join(t.TempDir(), "rclone")
+	script := "#!/bin/sh\ncase \" $* \" in\n  *lsjson*) echo '" + payload + "';;\n  *) echo ok;;\nesac\nexit 0\n"
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return bin
+}
+
+func TestBrowseFS_MapsLsjsonEntries(t *testing.T) {
+	srv, cleanup := newTestServerWithRclone(t, writeLsjsonRclone(t, `[{"Name":"alpha.txt","Path":"alpha.txt","Size":3,"IsDir":false}]`))
+	defer cleanup()
+	rr := doRequest(srv, "GET", "/api/v1/operations/fs?remote=/any", nil, "")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "alpha.txt") {
+		t.Fatalf("handler should surface lsjson name, got %s", rr.Body.String())
+	}
+}
+
 func TestUpdateFlow_ConflictWhenRunning(t *testing.T) {
 	bin := filepath.Join(t.TempDir(), "rclone")
 	if err := os.WriteFile(bin, []byte("#!/bin/sh\nsleep 20\nexit 0\n"), 0o755); err != nil {
@@ -833,5 +855,107 @@ func TestUpdateFlow_ConflictWhenRunning(t *testing.T) {
 	rr = doRequest(srv, "PUT", "/api/v1/flows/flow-busy", body, "")
 	if rr.Code != http.StatusConflict {
 		t.Fatalf("update running flow: status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestHandleChangePassword_RekeysOpenDatabase uses the production db filename
+// (gn-drive.db). Change-password must close that handle before re-encrypting,
+// lock the process, then reopen on unlock with the new password.
+func TestHandleChangePassword_RekeysOpenDatabase(t *testing.T) {
+	dir := t.TempDir()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	authSvc, err := auth.New(auth.Options{ConfigDir: dir, Logger: log})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbPath := filepath.Join(dir, "gn-drive.db")
+	st, err := store.New(context.Background(), dbPath, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bus := eventbus.NewBus(context.Background())
+
+	var deps *AppDeps
+	deps = &AppDeps{
+		Auth:  authSvc,
+		Store: st,
+		Bus:   bus,
+		BeforeLock: func() error {
+			if deps.Store == nil {
+				return nil
+			}
+			err := deps.Store.Close()
+			deps.Store = nil
+			return err
+		},
+		AfterUnlock: func(ctx context.Context) error {
+			if deps.Store != nil {
+				return nil
+			}
+			opened, err := store.New(ctx, dbPath, log)
+			if err != nil {
+				return err
+			}
+			deps.Store = opened
+			return nil
+		},
+	}
+	srv := New(deps, log)
+	t.Cleanup(func() {
+		if deps.Store != nil {
+			_ = deps.Store.Close()
+		}
+	})
+
+	setup := doRequest(srv, "POST", "/api/v1/auth/setup", map[string]string{"password": "old-pw-1234"}, "")
+	if setup.Code != http.StatusCreated {
+		t.Fatalf("setup: %d %s", setup.Code, setup.Body.String())
+	}
+	var session string
+	for _, c := range setup.Result().Cookies() {
+		if c.Name == SessionCookieName {
+			session = c.Value
+		}
+	}
+	if session == "" {
+		t.Fatal("setup must mint a session cookie")
+	}
+	create := doRequest(srv, "POST", "/api/v1/flows", map[string]any{"id": "f1", "name": "keep-me"}, session)
+	if create.Code != http.StatusCreated && create.Code != http.StatusOK {
+		t.Fatalf("create flow: %d %s", create.Code, create.Body.String())
+	}
+
+	rr := doRequest(srv, "POST", "/api/v1/auth/change-password", map[string]string{
+		"old_password": "old-pw-1234", "new_password": "new-pw-1234",
+	}, "")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("change-password: %d %s", rr.Code, rr.Body.String())
+	}
+	if authSvc.IsUnlocked() {
+		t.Fatal("change-password must lock after re-keying an open database")
+	}
+	if deps.Store != nil {
+		t.Fatal("data plane must be closed before the db file is re-encrypted")
+	}
+
+	unlock := doRequest(srv, "POST", "/api/v1/auth/unlock", map[string]string{"password": "new-pw-1234"}, "")
+	if unlock.Code != http.StatusOK {
+		t.Fatalf("unlock with new password: %d %s", unlock.Code, unlock.Body.String())
+	}
+	var cookie string
+	for _, c := range unlock.Result().Cookies() {
+		if c.Name == SessionCookieName {
+			cookie = c.Value
+		}
+	}
+	if cookie == "" {
+		t.Fatal("unlock must mint a session cookie")
+	}
+	listed := doRequest(srv, "GET", "/api/v1/flows", nil, cookie)
+	if listed.Code != http.StatusOK {
+		t.Fatalf("list flows after re-key: %d %s", listed.Code, listed.Body.String())
+	}
+	if !strings.Contains(listed.Body.String(), "keep-me") {
+		t.Fatalf("reopened store lost flows: %s", listed.Body.String())
 	}
 }

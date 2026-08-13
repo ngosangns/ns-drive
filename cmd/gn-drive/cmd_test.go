@@ -762,6 +762,53 @@ exit 0
 	}
 }
 
+func TestRemoteAddCmd_AuthFailRollsBack(t *testing.T) {
+	dir := t.TempDir()
+	state := filepath.Join(dir, "remotes")
+	bin := filepath.Join(dir, "rclone")
+	script := `#!/bin/sh
+state="` + state + `"
+args=" $* "
+case "$args" in
+  *" config create "*) echo r1 >> "$state"; exit 0 ;;
+  *" lsd "*) exit 1 ;;
+  *" config delete "*) : > "$state"; exit 0 ;;
+  *" listremotes "*) cat "$state" 2>/dev/null; exit 0 ;;
+esac
+exit 0
+`
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	cfg := t.TempDir()
+	a, err := app.New(context.Background(), app.Options{
+		ConfigDir: cfg, LogMode: logging.ModeForeground, RcloneBinary: bin,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	cmd, _ := fakeCmd()
+	err = runRemoteAdd(context.Background(), a, "r1", "drive", nil, cmd)
+	if err == nil {
+		t.Fatal("expected auth failure from runRemoteAdd")
+	}
+	if !strings.Contains(err.Error(), "auth failed") {
+		t.Fatalf("err = %v, want auth failed", err)
+	}
+	listed, listErr := a.Rclone.ListRemotes(context.Background())
+	if listErr != nil {
+		t.Fatal(listErr)
+	}
+	for _, r := range listed {
+		if r.Name == "r1" {
+			t.Fatal("failed auth must roll back the remote")
+		}
+	}
+}
+
 func TestRemoteAddCmd_FakeRclone(t *testing.T) {
 	dir := t.TempDir()
 	script := `#!/bin/sh
@@ -2652,8 +2699,8 @@ func TestSyncCmd_DryRun(t *testing.T) {
 
 	appNewFn = func(ctx context.Context, opts app.Options) (*app.App, error) {
 		return app.New(ctx, app.Options{
-			ConfigDir:   filepath.Join(dir, "config"),
-			LogMode:     logging.ModeForeground,
+			ConfigDir:    filepath.Join(dir, "config"),
+			LogMode:      logging.ModeForeground,
 			RcloneBinary: bin,
 		})
 	}

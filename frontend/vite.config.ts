@@ -15,8 +15,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: false,
-      // Emit a self-destroying worker instead of an active Workbox cache.
-      // gn-drive data changes continuously; caching would show stale state.
+      // Do not inject registerSW.js. A self-destroying worker still emits
+      // /sw.js so an older caching worker can update and retire; registering
+      // it on every load calls client.navigate() and aborts in-flight unlock.
+      injectRegister: false,
       selfDestroying: true,
     }),
     ...(coverage

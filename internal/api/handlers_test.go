@@ -59,12 +59,12 @@ func newTestServer(t *testing.T) (*Server, func()) {
 	}
 
 	deps := &AppDeps{
-		Auth:        authSvc,
-		Store:       st,
-		Bus:         bus,
-		WebUI:       webui.Handler(),
-		Rclone:      rc,
-		SyncEngine:  eng,
+		Auth:       authSvc,
+		Store:      st,
+		Bus:        bus,
+		WebUI:      webui.Handler(),
+		Rclone:     rc,
+		SyncEngine: eng,
 	}
 	srv := New(deps, log)
 	cleanup := func() {
@@ -298,6 +298,17 @@ func TestHandleChangePassword_Success(t *testing.T) {
 	}, "")
 	if rr.Code != 200 {
 		t.Errorf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	if srv.app.Auth.IsUnlocked() {
+		t.Fatal("change-password must lock so the new password is required")
+	}
+	status := doRequest(srv, "GET", "/api/v1/status", nil, "")
+	if !strings.Contains(status.Body.String(), `"unlocked":false`) {
+		t.Fatalf("status after change-password: %s", status.Body.String())
+	}
+	unlock := doRequest(srv, "POST", "/api/v1/auth/unlock", map[string]string{"password": "new-pw-1234"}, "")
+	if unlock.Code != 200 {
+		t.Fatalf("unlock with new password: %d %s", unlock.Code, unlock.Body.String())
 	}
 }
 
@@ -999,8 +1010,6 @@ func TestChiURLParam(t *testing.T) {
 
 var _ store.Profile
 
-
-
 // TestCorSHandler_NoOrigin and WithOrigin cover the CORS middleware.
 func TestCorSHandler_NoOrigin(t *testing.T) {
 	srv, cleanup := newTestServer(t)
@@ -1218,7 +1227,6 @@ func TestHandleDeleteRemote(t *testing.T) {
 		t.Errorf("unexpected status: %d", rr.Code)
 	}
 }
-
 
 func TestHandleTestRemote(t *testing.T) {
 	srv, cleanup := newTestServer(t)

@@ -37,6 +37,7 @@ export async function newPage(): Promise<Page> {
   const page = await ctx.newPage()
   page.setDefaultTimeout(20_000)
   page.setDefaultNavigationTimeout(30_000)
+  await page.setBypassServiceWorker(true)
   // Pin UI language so heading/confirm labels stay English for assertions.
   await page.evaluateOnNewDocument(() => {
     try {
