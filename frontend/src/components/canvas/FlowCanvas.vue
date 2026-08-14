@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, markRaw } from 'vue'
 import {
+  PanOnScrollMode,
   VueFlow,
   type Connection,
   type Edge,
@@ -129,6 +130,9 @@ function onDelete() {
       :nodes-connectable="!running"
       :edges-updatable="false"
       :default-viewport="graph.viewport"
+      :zoom-on-scroll="false"
+      pan-on-scroll
+      :pan-on-scroll-mode="PanOnScrollMode.Free"
       class="h-full w-full"
       @connect="onConnect"
       @node-click="onNodeClick"
