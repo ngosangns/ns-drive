@@ -21,8 +21,11 @@ export function parseFlowPayload(data: Record<string, unknown>): {
   opId?: string
   error?: string
 } | null {
-  const id = String(data.flow_id ?? data.board_id ?? '')
-  const status = String(data.status ?? '')
+  const rawId = data.flow_id ?? data.board_id
+  const rawStatus = data.status
+  if (typeof rawId !== 'string' || typeof rawStatus !== 'string') return null
+  const id = rawId
+  const status = rawStatus
   if (!id || !status) return null
   const opId = data.op_id ? String(data.op_id) : data.node_id ? String(data.node_id) : undefined
   let error: string | undefined

@@ -16,6 +16,11 @@ describe('sseRuntime', () => {
     assert.equal(parseFlowPayload({ status: 'running' }), null)
   })
 
+  it('rejects null flow identifiers and statuses', () => {
+    assert.equal(parseFlowPayload({ flow_id: false, status: 'running' }), null)
+    assert.equal(parseFlowPayload({ flow_id: 'f1', status: false }), null)
+  })
+
   it('skips flow reload while the canvas is dirty', () => {
     assert.equal(shouldReloadFlows('flows', true), false)
     assert.equal(shouldReloadFlows('flows', false), true)
