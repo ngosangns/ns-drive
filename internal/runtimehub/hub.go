@@ -332,6 +332,8 @@ func progressFromTask(t syncengine.TaskSnapshot) eventbus.SyncProgressEvent {
 		ETA:              s.ETA,
 		Errors:           int(s.Errors),
 		CurrentFile:      s.CurrentFile,
+		Stage:            s.Stage,
+		StageDetail:      s.StageDetail,
 		FilesTransferred: int(s.Files),
 		TotalFiles:       int(s.FilesTotal),
 		Checks:           s.Checks,

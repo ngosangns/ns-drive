@@ -170,7 +170,7 @@ export const useFlowsStore = defineStore('flows', () => {
       (s) => s === 'running' || s === 'cancelling',
     )
     if (empty && locallyRunning && rev <= Math.max(runtimeRevision.value, 0)) return
-    const next = applyRuntimeSnapshot(snap, items.value)
+    const next = applyRuntimeSnapshot(snap, items.value, opSyncStatus.value)
     runtimeRevision.value = next.revision
     runStatus.value = next.runStatus
     lastError.value = next.lastError
@@ -190,7 +190,12 @@ export const useFlowsStore = defineStore('flows', () => {
 
   async function load() {
     const list = (await api.get<Flow[]>('/api/v1/flows')) ?? []
-    items.value = list.map((f) => ({
+    hydrate(list)
+    await pullRuntime()
+  }
+
+  function hydrate(list: Flow[] | null | undefined) {
+    items.value = (list ?? []).map((f) => ({
       ...f,
       operations: (f.operations ?? []).map((op) => withSyncedAction(op)),
       schedule_enabled: f.schedule_enabled ?? f.enabled ?? false,
@@ -200,7 +205,6 @@ export const useFlowsStore = defineStore('flows', () => {
       status: runStatus.value[f.id] || f.status || 'idle',
       last_error: lastError.value[f.id] || f.last_error,
     }))
-    await pullRuntime()
   }
 
   async function save(f: Flow) {
@@ -430,6 +434,7 @@ export const useFlowsStore = defineStore('flows', () => {
     flowStatusOf,
     logOf,
     activeSyncOf,
+    hydrate,
     load,
     save,
     add,

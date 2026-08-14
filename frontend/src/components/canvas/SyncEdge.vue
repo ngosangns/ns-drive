@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { BaseEdge, EdgeLabelRenderer, getBezierPath } from '@vue-flow/core'
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath } from '@vue-flow/core'
+import type { Position } from '@vue-flow/core'
 import type { FileTransferInfo } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import {
@@ -19,6 +20,7 @@ import {
   type FileParticle,
   type ParticleDir,
 } from '@/lib/fileParticles'
+import { formatFileProgressBadge, formatTransferProgress } from '@/lib/edgeProgress'
 
 const props = defineProps<{
   id: string
@@ -33,27 +35,39 @@ const props = defineProps<{
     action?: string
     running?: boolean
     flowRunning?: boolean
+    syncStatus?: string
+    progress?: number
+    filesTransferred?: number
+    totalFiles?: number
+    checks?: number
+    totalChecks?: number
+    stage?: string
+    stageDetail?: string
     transfers?: FileTransferInfo[]
   }
 }>()
 
 type LiveDot = FileParticle & { x: number; y: number; opacity: number }
+type PanelKind = 'files' | 'errors' | 'processed'
 
 const pathEl = ref<SVGPathElement | null>(null)
 const dots = ref<LiveDot[]>([])
 const live = new Map<string, LiveDot>()
-const panel = ref<'files' | 'errors' | 'processed' | null>(null)
-const panelAnchor = ref<'source' | 'target'>('source')
+const panel = ref<PanelKind | null>(null)
+const triggerLayerEl = ref<HTMLElement | null>(null)
+const panelEl = ref<HTMLElement | null>(null)
 const { t } = useI18n()
 
 const path = computed(() =>
-  getBezierPath({
+  getSmoothStepPath({
     sourceX: props.sourceX,
     sourceY: props.sourceY,
     targetX: props.targetX,
     targetY: props.targetY,
-    sourcePosition: props.sourcePosition as never,
-    targetPosition: props.targetPosition as never,
+    sourcePosition: props.sourcePosition as Position,
+    targetPosition: props.targetPosition as Position,
+    offset: 18,
+    borderRadius: 6,
   }),
 )
 
@@ -73,11 +87,101 @@ const visibleFiles = computed(() => {
     (a, b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || a.name.localeCompare(b.name),
   )
 })
+const panelFiles = computed(() => {
+  if (panel.value === 'errors') return errorFiles.value
+  if (panel.value === 'processed') return processedFiles.value
+  return visibleFiles.value
+})
 const isBidirectional = computed(() => isBidirectionalAction(props.data?.action))
 const sourceTriggerX = computed(() => nodeCenterX(props.sourceX, props.sourcePosition))
 const targetTriggerX = computed(() => nodeCenterX(props.targetX, props.targetPosition))
-const panelX = computed(() => (panelAnchor.value === 'target' ? targetTriggerX.value : sourceTriggerX.value) + 24)
-const panelY = computed(() => (panelAnchor.value === 'target' ? props.targetY : props.sourceY) + 28)
+const statusTriggerOffsetY = 44
+const edgeCenterX = computed(() => path.value[1])
+const edgeCenterY = computed(() => path.value[2])
+const totalFiles = computed(() => props.data?.totalFiles || transfers.value.length)
+const resolvedFiles = computed(() => processedFiles.value.length)
+const fileProgressBadge = computed(() =>
+  formatFileProgressBadge(props.data?.filesTransferred, props.data?.totalFiles, transfers.value.length),
+)
+const overallProgress = computed(() =>
+  props.data?.progress === undefined ? '' : formatTransferProgress(props.data.progress),
+)
+const hasCheckingFiles = computed(() => transfers.value.some((file) => file.status === 'checking'))
+const hasTransferringFiles = computed(() => transfers.value.some((file) => file.status === 'transferring'))
+const allFilesComplete = computed(() => transfers.value.length > 0 && resolvedFiles.value === transfers.value.length)
+
+type StepState = 'pending' | 'active' | 'complete' | 'error'
+type ResolvingStep = {
+  key: 'preparing' | 'resolving' | 'checking' | 'transferring' | 'completed'
+  state: StepState
+  detail?: string
+}
+
+const resolvingSteps = computed<ResolvingStep[]>(() => {
+  const running = !!props.data?.flowRunning
+  const failed = props.data?.syncStatus === 'failed' || errorFiles.value.length > 0
+  const hasFileList = transfers.value.length > 0
+  const checksDone = (props.data?.checks ?? 0) > 0 || hasCheckingFiles.value || hasTransferringFiles.value || resolvedFiles.value > 0
+  const transferDone = resolvedFiles.value > 0 || allFilesComplete.value
+  const progressDetail = props.data?.progress === undefined ? '' : ` · ${Math.round(props.data.progress)}%`
+
+  return [
+    {
+      key: 'preparing',
+      state: hasFileList ? 'complete' : running ? 'active' : 'pending',
+    },
+    {
+      key: 'resolving',
+      state: hasFileList ? 'complete' : running ? 'active' : 'pending',
+    },
+    {
+      key: 'checking',
+      state: hasCheckingFiles.value ? 'active' : checksDone ? 'complete' : 'pending',
+      detail: props.data?.totalChecks ? `${props.data.checks ?? 0} / ${props.data.totalChecks}` : undefined,
+    },
+    {
+      key: 'transferring',
+      state: hasTransferringFiles.value ? 'active' : transferDone ? 'complete' : 'pending',
+      detail: totalFiles.value
+        ? `${props.data?.filesTransferred ?? resolvedFiles.value} / ${totalFiles.value}${progressDetail}`
+        : progressDetail.slice(3) || undefined,
+    },
+    {
+      key: 'completed',
+      state: failed ? 'error' : props.data?.syncStatus === 'completed' || allFilesComplete.value ? 'complete' : 'pending',
+    },
+  ]
+})
+
+const triggerClass = computed(() => {
+  if (errorFiles.value.length || props.data?.syncStatus === 'failed') return 'border-danger text-danger'
+  if (allFilesComplete.value || props.data?.syncStatus === 'completed') return 'border-success text-success'
+  return 'border-border text-text-dim'
+})
+const panelStyle = computed<Record<string, string>>(() => {
+  if (panel.value === 'errors') {
+    return {
+      left: `${sourceTriggerX.value + 18}px`,
+      top: `${props.sourceY + statusTriggerOffsetY}px`,
+      transform: 'translateY(-50%)',
+      pointerEvents: 'all',
+    }
+  }
+  if (panel.value === 'processed') {
+    return {
+      left: `${targetTriggerX.value - 18}px`,
+      top: `${props.targetY + statusTriggerOffsetY}px`,
+      transform: 'translate(-100%, -50%)',
+      pointerEvents: 'all',
+    }
+  }
+  return {
+    left: `${edgeCenterX.value}px`,
+    top: `${edgeCenterY.value + 22}px`,
+    transform: 'translateX(-50%)',
+    pointerEvents: 'all',
+  }
+})
 const markerId = computed(() => `sync-edge-arrow-${props.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`)
 const edgeColor = computed(() =>
   props.selected || props.data?.running ? 'var(--color-accent-strong)' : 'var(--color-border)',
@@ -182,11 +286,22 @@ function tick() {
 
 onMounted(() => {
   raf = requestAnimationFrame(tick)
+  window.addEventListener('click', onDocumentClick)
 })
-onBeforeUnmount(() => cancelAnimationFrame(raf))
+onBeforeUnmount(() => {
+  cancelAnimationFrame(raf)
+  window.removeEventListener('click', onDocumentClick)
+})
 watch(
   () => [props.sourceX, props.sourceY, props.targetX, props.targetY],
   () => place(),
+)
+watch(
+  () => [props.selected, props.data?.running],
+  ([selected, running]) => {
+    if (selected && running && !panel.value) panel.value = 'files'
+  },
+  { immediate: true },
 )
 
 function fill(status: string): string {
@@ -205,6 +320,10 @@ function statusLabel(status: string): string {
   return t('workspace.fileTabs.pending')
 }
 
+function activeProgressLabel(file: FileTransferInfo): string {
+  return file.status === 'transferring' ? formatTransferProgress(file.progress) : ''
+}
+
 function rowClass(status: string): string {
   if (status === 'failed') return 'bg-danger/10 text-danger'
   if (status === 'completed' || status === 'checked') return 'bg-success/10 text-success'
@@ -212,22 +331,27 @@ function rowClass(status: string): string {
   return 'bg-bg/60 text-text-muted'
 }
 
-function togglePanel(next: 'files' | 'errors' | 'processed', anchor: 'source' | 'target', event: MouseEvent) {
-  event.stopPropagation()
-  panelAnchor.value = anchor
-  panel.value = panel.value === next ? null : next
+function rowStyle(file: FileTransferInfo): Record<string, string> {
+  const progress = Math.min(100, Math.max(0, file.progress ?? 0))
+  const color = `var(${statusColorToken(file.status)})`
+  const fill = `color-mix(in srgb, ${color} 18%, transparent)`
+  return {
+    backgroundImage: `linear-gradient(90deg, ${fill} 0%, ${fill} ${progress}%, transparent ${progress}%, transparent 100%)`,
+  }
 }
 
-watch(
-  () => [props.selected, props.data?.flowRunning],
-  ([selected, flowRunning]) => {
-    if (selected && flowRunning) {
-      panelAnchor.value = 'source'
-      panel.value = 'files'
-    }
-    else if (!selected || !flowRunning) panel.value = null
-  },
-)
+function togglePanel(next: PanelKind, event: MouseEvent) {
+  event.stopPropagation()
+  panel.value = next
+}
+
+function onDocumentClick(event: MouseEvent) {
+  if (!panel.value) return
+  const target = event.target
+  if (!(target instanceof Node)) return
+  if (triggerLayerEl.value?.contains(target) || panelEl.value?.contains(target)) return
+  panel.value = null
+}
 </script>
 
 <template>
@@ -266,12 +390,16 @@ watch(
       :cy="dot.y"
       r="3.5"
       :fill="fill(dot.status)"
+      stroke="var(--color-surface)"
+      stroke-width="1.25"
+      vector-effect="non-scaling-stroke"
       :opacity="dot.opacity"
       class="pointer-events-none"
     />
     <EdgeLabelRenderer>
       <div
-        v-if="data?.flowRunning"
+        v-if="data?.flowRunning || transfers.length"
+        ref="triggerLayerEl"
         class="pointer-events-none nodrag nopan absolute inset-0"
         :style="{
           pointerEvents: 'none',
@@ -279,39 +407,55 @@ watch(
       >
         <button
           type="button"
-          class="pointer-events-auto absolute flex h-6 w-6 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border bg-surface shadow-sm transition-colors hover:border-danger hover:text-danger"
-          :class="errorFiles.length ? 'border-danger text-danger' : 'border-border text-text-dim'"
-          :style="{ left: `${sourceTriggerX}px`, top: `${sourceY + 28}px` }"
+          class="pointer-events-auto absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border bg-surface text-text-dim shadow-sm transition-colors"
+          :class="[errorFiles.length ? 'border-danger text-danger' : 'border-border', panel === 'errors' && 'ring-2 ring-accent/30']"
+          :style="{ left: `${sourceTriggerX}px`, top: `${sourceY + statusTriggerOffsetY}px` }"
           :aria-label="t('workspace.canvas.errorFiles')"
+          :aria-expanded="panel === 'errors'"
           :data-testid="`canvas-edge-errors-${id}`"
-          @click="togglePanel('errors', 'source', $event)"
+          @click="togglePanel('errors', $event)"
         >
-          <PhWarningCircle :size="15" :weight="errorFiles.length ? 'fill' : 'regular'" />
+          <PhWarningCircle :size="15" :weight="errorFiles.length ? 'fill' : 'regular'" class="shrink-0" />
           <span v-if="errorFiles.length" class="absolute -right-1 -top-1 min-w-3 rounded-full bg-danger px-0.5 text-[9px] leading-3 text-white">
             {{ errorFiles.length }}
           </span>
         </button>
         <button
           type="button"
-          class="pointer-events-auto absolute flex h-6 -translate-x-1/2 cursor-pointer items-center gap-1 rounded-full border border-border bg-surface px-1.5 text-text-dim shadow-sm transition-colors hover:border-success hover:text-success"
-          :style="{ left: `${targetTriggerX}px`, top: `${targetY + 28}px` }"
+          class="pointer-events-auto absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-border bg-surface text-text-dim shadow-sm transition-colors"
+          :class="[allFilesComplete ? 'border-success text-success' : '', panel === 'processed' && 'ring-2 ring-accent/30']"
+          :style="{ left: `${targetTriggerX}px`, top: `${targetY + statusTriggerOffsetY}px` }"
           :aria-label="t('workspace.canvas.processedFiles')"
+          :aria-expanded="panel === 'processed'"
           :data-testid="`canvas-edge-processed-${id}`"
-          @click="togglePanel('processed', 'target', $event)"
+          @click="togglePanel('processed', $event)"
         >
-          <PhCheckCircle :size="14" weight="fill" />
-          <span v-if="processedFiles.length" class="text-[10px] font-semibold tabular-nums">{{ processedFiles.length }}</span>
+          <PhCheckCircle :size="15" weight="fill" class="shrink-0" />
+          <span v-if="processedFiles.length" class="absolute -right-1 -top-1 min-w-3 rounded-full bg-success px-0.5 text-[9px] leading-3 text-white">
+            {{ processedFiles.length }}
+          </span>
+        </button>
+        <button
+          type="button"
+          class="pointer-events-auto absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border bg-surface shadow-sm transition-colors"
+          :class="[triggerClass, panel === 'files' && 'bg-surface-hover ring-2 ring-accent/30']"
+          :style="{ left: `${edgeCenterX}px`, top: `${edgeCenterY}px` }"
+          :aria-label="t('workspace.canvas.processingFiles')"
+          :aria-expanded="panel === 'files'"
+          :data-testid="`canvas-edge-files-trigger-${id}`"
+          @click="togglePanel('files', $event)"
+        >
+          <PhFile :size="15" weight="bold" class="shrink-0" />
+          <span v-if="fileProgressBadge" class="absolute -right-1 -top-1 min-w-3 rounded-full bg-accent-strong px-0.5 text-[9px] leading-3 text-text">
+            {{ fileProgressBadge }}
+          </span>
         </button>
       </div>
       <div
         v-if="panel"
-        class="nodrag nopan absolute z-20 w-72 rounded-lg border border-border bg-surface text-text shadow-xl"
-        :style="{
-          left: `${panelX}px`,
-          top: `${panelY}px`,
-          transform: 'translateY(-50%)',
-          pointerEvents: 'all',
-        }"
+        ref="panelEl"
+        class="nodrag nopan absolute z-[1000] w-80 rounded-lg border border-border bg-surface text-text shadow-xl"
+        :style="panelStyle"
         :data-testid="`canvas-edge-files-${id}`"
         @wheel.stop
         @click.stop
@@ -326,14 +470,42 @@ watch(
                   : t('workspace.canvas.processingFiles')
             }}
           </span>
-          <button type="button" class="text-text-dim hover:text-text" @click="panel = null">×</button>
+          <span class="font-mono text-[10px] text-text-muted">
+            <template v-if="panel === 'files'">
+              {{ resolvedFiles }} / {{ totalFiles }}<template v-if="overallProgress"> · {{ overallProgress }}</template>
+            </template>
+            <template v-else-if="panel === 'errors'">{{ errorFiles.length }}</template>
+            <template v-else>{{ processedFiles.length }}</template>
+          </span>
         </div>
-        <div class="max-h-52 overflow-auto p-1" @wheel.stop>
+        <div v-if="panel === 'files'" class="border-b border-border px-2.5 py-2">
+          <div v-if="data?.stage" class="mb-2 flex items-center justify-between gap-2 rounded bg-accent/10 px-1.5 py-1 text-[11px] text-text">
+            <span class="font-semibold">{{ t(`workspace.syncStages.${data.stage}`) }}</span>
+            <span v-if="data.stageDetail" class="min-w-0 truncate font-mono text-[10px] text-text-muted">{{ data.stageDetail }}</span>
+          </div>
+          <div class="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-text-muted">
+            {{ t('workspace.syncLabels.resolving') }}
+          </div>
+          <div class="flex flex-col gap-1">
+            <div v-for="step in resolvingSteps" :key="step.key" class="flex items-center gap-2 rounded bg-bg/60 px-1.5 py-1 text-[11px]">
+              <PhCheckCircle v-if="step.state === 'complete'" :size="13" weight="fill" class="shrink-0 text-success" />
+              <PhWarningCircle v-else-if="step.state === 'error'" :size="13" weight="fill" class="shrink-0 text-danger" />
+              <PhSpinner v-else-if="step.state === 'active'" :size="13" class="shrink-0 animate-spin text-running" />
+              <span v-else class="h-2 w-2 shrink-0 rounded-full border border-border-muted" />
+              <span class="min-w-0 flex-1 font-semibold" :class="step.state === 'pending' ? 'text-text-dim' : 'text-text'">
+                {{ t(`workspace.syncLabels.${step.key}`) }}
+              </span>
+              <span v-if="step.detail" class="font-mono text-[10px] text-text-muted">{{ step.detail }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex max-h-52 flex-col gap-1 overflow-auto p-1.5" @wheel.stop>
           <div
-            v-for="file in panel === 'errors' ? errorFiles : panel === 'processed' ? processedFiles : visibleFiles"
+            v-for="file in panelFiles"
             :key="file.name"
             class="flex items-center gap-2 rounded px-1.5 py-1 text-xs"
             :class="rowClass(file.status)"
+            :style="rowStyle(file)"
             :data-testid="`canvas-edge-file-${file.name}`"
           >
             <PhSpinner v-if="file.status === 'transferring' || file.status === 'checking'" :size="12" class="shrink-0 animate-spin" />
@@ -341,9 +513,11 @@ watch(
             <PhWarningCircle v-else-if="file.status === 'failed'" :size="12" weight="fill" />
             <PhFile v-else :size="12" />
             <span class="min-w-0 flex-1 truncate" :title="file.name">{{ fileBaseName(file.name) }}</span>
-            <span class="shrink-0 text-[10px] uppercase">{{ statusLabel(file.status) }}</span>
+            <span class="shrink-0 text-[10px] uppercase">
+              {{ statusLabel(file.status) }}<template v-if="activeProgressLabel(file)"> · {{ activeProgressLabel(file) }}</template>
+            </span>
           </div>
-          <p v-if="!(panel === 'errors' ? errorFiles : panel === 'processed' ? processedFiles : visibleFiles).length" class="px-1.5 py-2 text-xs text-text-muted">
+          <p v-if="!panelFiles.length" class="px-1.5 py-2 text-xs text-text-muted">
             {{
               panel === 'errors'
                 ? t('workspace.canvas.noErrors')

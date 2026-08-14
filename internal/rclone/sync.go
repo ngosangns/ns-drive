@@ -47,7 +47,11 @@ type Stats struct {
 	Speed       float64 `json:"speed_bps"`
 	ETA         int64   `json:"eta_secs"`
 	CurrentFile string  `json:"current_file,omitempty"`
-	LastUpdate  int64   `json:"last_update_unix"`
+	// Stage is a coarse rclone lifecycle marker derived from its structured log.
+	// It lets the UI explain work before byte-transfer stats exist.
+	Stage       string `json:"stage,omitempty"`
+	StageDetail string `json:"stage_detail,omitempty"`
+	LastUpdate  int64  `json:"last_update_unix"`
 	// FileTransfers is the per-file list for the status panel (capped).
 	FileTransfers []FileTransfer `json:"file_transfers,omitempty"`
 }
@@ -448,6 +452,12 @@ func (c *Client) execute(ctx context.Context, args []string, onProgress func(Sta
 		}
 	}
 
+	// rclone may spend a long time authenticating and listing before its first
+	// periodic stats line. Emit an immediate lifecycle marker for that gap.
+	stats.Stage = "starting"
+	stats.StageDetail = ""
+	emitProgress()
+
 	// Concurrent seed: list source files as pending so the Pending tab has
 	// real names before transfers start. Cap + timeout keep large trees from
 	// stalling the run. Failures are non-fatal (log-only). Own WaitGroup so a
@@ -487,6 +497,7 @@ func (c *Client) execute(ctx context.Context, args []string, onProgress func(Sta
 			if !parseJSONStatsLine(line, &stats) {
 				parseStatsLine(line, &stats)
 			}
+			updateStageFromLog(line, &stats)
 			// Always try per-file event extraction (object lines + transferring[]).
 			ingestJSONLogLine(line, &stats, fileTrack)
 			emitProgress()

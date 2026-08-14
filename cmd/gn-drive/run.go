@@ -16,6 +16,7 @@ import (
 	"github.com/gnasdev/gn-drive/internal/instance"
 	"github.com/gnasdev/gn-drive/internal/logging"
 	"github.com/gnasdev/gn-drive/internal/ports"
+	"github.com/gnasdev/gn-drive/internal/securestore"
 	"github.com/gnasdev/gn-drive/internal/service"
 	"github.com/spf13/cobra"
 )
@@ -143,6 +144,9 @@ func runWithDeps(ctx context.Context, opts runOpts, deps runDeps) error {
 		Version:        Version,
 		// Portal for foreground web UI. Service mode requires pre-unlock.
 		PortalMode: !opts.serviceMode,
+	}
+	if !opts.serviceMode {
+		appOpts.KeyStore = securestore.New("gn-drive")
 	}
 	if opts.serviceMode && appOpts.UnlockPassword == "" {
 		if p := os.Getenv("GN_DRIVE_PASSWORD"); p != "" {

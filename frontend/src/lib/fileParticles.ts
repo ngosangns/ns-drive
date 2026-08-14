@@ -89,7 +89,7 @@ export function desiredT(p: {
   return forward ? local : 1 - local
 }
 
-/** Pending files wait off-edge; only work in flight is drawn. */
+/** Pending files belong in the card; dots require a live, changing state. */
 export function isEdgeVisibleStatus(status: string): boolean {
   switch (status) {
     case 'transferring':
@@ -104,8 +104,7 @@ export function isEdgeVisibleStatus(status: string): boolean {
 }
 
 /**
- * One particle per in-flight transfer, capped.
- * Pending is omitted — those files are not on the edge yet.
+ * One particle per active or terminal transfer, capped.
  */
 export function transfersToParticles(
   transfers: FileTransferInfo[] | undefined | null,

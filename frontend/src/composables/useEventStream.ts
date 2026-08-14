@@ -1,141 +1,111 @@
 /**
- * Subscribe to backend SSE (/api/v1/events). First frame is runtime:snapshot;
- * later frames update Pinia. Document changes arrive as state:changed.
+ * Keep Pinia hydrated from the backend-owned WebSocket projection. REST writes
+ * remain authoritative only after the backend persists and broadcasts a new
+ * snapshot, so reconnecting or reloading never depends on browser state.
  */
 import { onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 import { useFlowsStore } from '@/stores/flows'
 import { useRemotesStore } from '@/stores/remotes'
-import { useCanvasStore } from '@/stores/canvas'
-import {
-  FLOW_RUN_TOPIC,
-  LEGACY_FLOW_TOPIC,
-  SYNC_TOPICS,
-  acceptLive,
-  isFlowTopic,
-  isSyncTopic,
-  parseFlowPayload,
-  parseJsonObject,
-  parseSnapshot,
-  shouldReloadFlows,
-  shouldReloadRemotes,
-} from '@/lib/sseRuntime'
+import { isFlowTopic, isSyncTopic, parseFlowPayload } from '@/lib/sseRuntime'
+import type { StateSnapshot } from '@/api/types'
 
-export type UseEventStreamOptions = {
-  enabled?: Ref<boolean>
+export type UseEventStreamOptions = { enabled?: Ref<boolean> }
+
+type StateFrame = {
+  type?: string
+  snapshot?: StateSnapshot
+  topic?: string
+  data?: unknown
+}
+
+function stateSocketURL(): string {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//${window.location.host}/api/v1/state`
+}
+
+function parseFrame(raw: string): StateFrame | null {
+  try {
+    const data = JSON.parse(raw) as StateFrame
+    return data && typeof data === 'object' ? data : null
+  } catch {
+    return null
+  }
 }
 
 export function useEventStream(opts: UseEventStreamOptions = {}) {
   const flows = useFlowsStore()
   const remotes = useRemotesStore()
   const connected = ref(false)
-  let es: EventSource | null = null
+  let socket: WebSocket | null = null
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let intentionalClose = false
+  let reconnectDelay = 500
 
-  function applyFlowPayload(data: Record<string, unknown>) {
-    const parsed = parseFlowPayload(data)
-    if (!parsed) return
-    flows.applyRunEvent(parsed.id, parsed.status, parsed.opId, parsed.error)
+  function hydrate(snapshot: StateSnapshot) {
+    flows.hydrate(snapshot.flows)
+    remotes.hydrate(snapshot.remotes)
+    flows.hydrateRuntime(snapshot.runtime)
+  }
+
+  function applyRuntimeEvent(topic: string, raw: unknown) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return
+    const data = raw as Record<string, unknown>
+    if (isSyncTopic(topic)) {
+      flows.applySyncProgress(topic, data)
+      return
+    }
+    if (isFlowTopic(topic)) {
+      const event = parseFlowPayload(data)
+      if (event) flows.applyRunEvent(event.id, event.status, event.opId, event.error)
+    }
+  }
+
+  function scheduleReconnect() {
+    if (intentionalClose || reconnectTimer) return
+    const wait = reconnectDelay
+    reconnectDelay = Math.min(reconnectDelay * 2, 5_000)
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null
+      connect()
+    }, wait)
   }
 
   function connect() {
     intentionalClose = false
-    if (es) {
-      es.close()
-      es = null
-    }
-    let snapshotSeen = false
-    const queued: Array<{ topic: string; data: Record<string, unknown> }> = []
-
-    function handleLive(topic: string, data: Record<string, unknown>) {
-      if (!acceptLive(snapshotSeen, Number(flows.runtimeRevision ?? 0), data)) {
-        if (!snapshotSeen) queued.push({ topic, data })
-        return
-      }
-      if (isSyncTopic(topic)) {
-        flows.applySyncProgress(topic, data)
-        return
-      }
-      if (isFlowTopic(topic)) applyFlowPayload(data)
-    }
-
-    es = new EventSource('/api/v1/events')
-    es.onopen = () => {
+    socket?.close()
+    socket = new WebSocket(stateSocketURL())
+    socket.onopen = () => {
       connected.value = true
+      reconnectDelay = 500
     }
-    es.onerror = () => {
+    socket.onmessage = (event) => {
+      const frame = parseFrame(String(event.data))
+      if (frame?.type === 'state.snapshot' && frame.snapshot) hydrate(frame.snapshot)
+      if (frame?.type === 'runtime.event' && frame.topic) applyRuntimeEvent(frame.topic, frame.data)
+    }
+    socket.onerror = () => socket?.close()
+    socket.onclose = () => {
       connected.value = false
-      es?.close()
-      es = null
-      if (intentionalClose) return
-      if (reconnectTimer) clearTimeout(reconnectTimer)
-      reconnectTimer = setTimeout(connect, 2_000)
-    }
-
-    es.addEventListener('runtime:snapshot', (ev) => {
-      const data = parseSnapshot((ev as MessageEvent).data)
-      if (!data) return
-      flows.hydrateRuntime(data)
-      snapshotSeen = true
-      const pending = queued.splice(0)
-      for (const q of pending) handleLive(q.topic, q.data)
-    })
-
-    es.addEventListener('state:changed', (ev) => {
-      const data = parseJsonObject((ev as MessageEvent).data)
-      if (!data) return
-      const domain = String(data.domain ?? '')
-      if (shouldReloadRemotes(domain)) {
-        void remotes.load()
-        return
-      }
-      let dirty = false
-      try {
-        dirty = !!useCanvasStore().dirty
-      } catch {
-        /* pinia not ready */
-      }
-      if (shouldReloadFlows(domain, dirty)) void flows.load()
-    })
-
-    for (const topic of [...SYNC_TOPICS, FLOW_RUN_TOPIC, LEGACY_FLOW_TOPIC]) {
-      es.addEventListener(topic, (ev) => {
-        const data = parseJsonObject((ev as MessageEvent).data)
-        if (!data) return
-        handleLive(topic, data)
-      })
+      socket = null
+      scheduleReconnect()
     }
   }
 
   function disconnect() {
     intentionalClose = true
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer)
-      reconnectTimer = null
-    }
-    es?.close()
-    es = null
+    if (reconnectTimer) clearTimeout(reconnectTimer)
+    reconnectTimer = null
+    socket?.close()
+    socket = null
     connected.value = false
   }
 
   if (opts.enabled) {
-    watch(
-      opts.enabled,
-      (on) => {
-        if (on) connect()
-        else disconnect()
-      },
-      { immediate: true },
-    )
+    watch(opts.enabled, (on) => (on ? connect() : disconnect()), { immediate: true })
   } else {
-    onMounted(() => {
-      connect()
-    })
+    onMounted(connect)
   }
-
-  onUnmounted(() => {
-    disconnect()
-  })
+  onUnmounted(disconnect)
 
   return { connected, connect, disconnect }
 }

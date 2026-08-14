@@ -16,7 +16,7 @@ function tr(name: string, status: string, progress = 0): FileTransferInfo {
 }
 
 describe('fileParticles', () => {
-  it('omits pending files from the edge', () => {
+  it('keeps pending files in the card instead of static edge dots', () => {
     const transfers = [tr('a', 'pending'), tr('b', 'transferring'), tr('c', 'failed'), tr('d', 'pending')]
     const dots = transfersToParticles(transfers, 'push')
     assert.equal(dots.length, 2)
@@ -26,7 +26,7 @@ describe('fileParticles', () => {
     )
   })
 
-  it('caps at 24 in-flight particles', () => {
+  it('prioritizes active transfers when capping dots', () => {
     const transfers: FileTransferInfo[] = []
     for (let i = 0; i < 20; i++) transfers.push(tr(`p-${i}`, 'pending'))
     for (let i = 0; i < 30; i++) transfers.push(tr(`x-${i}`, 'transferring'))

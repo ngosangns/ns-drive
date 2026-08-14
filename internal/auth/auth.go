@@ -22,6 +22,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
@@ -36,6 +37,7 @@ import (
 	"time"
 
 	"github.com/alexedwards/argon2id"
+	"github.com/gnasdev/gn-drive/internal/securestore"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -101,30 +103,36 @@ type LockoutStatus struct {
 
 // Status is the public auth state.
 type Status struct {
-	Setup     bool      `json:"setup"`
-	Unlocked  bool      `json:"unlocked"`
-	LockedAt  time.Time `json:"locked_at"`
-	Enabled   bool      `json:"enabled"`
-	Lockout   LockoutStatus `json:"lockout"`
+	Setup    bool          `json:"setup"`
+	Unlocked bool          `json:"unlocked"`
+	LockedAt time.Time     `json:"locked_at"`
+	Enabled  bool          `json:"enabled"`
+	Lockout  LockoutStatus `json:"lockout"`
 }
 
 // Options configures the Service.
 type Options struct {
 	ConfigDir string
 	Logger    *slog.Logger
+	// KeyStore persists the encryption key in the current OS user's credential
+	// store so a normal process restart can resume an unlocked session.
+	// Nil keeps the existing password-on-restart behavior.
+	KeyStore securestore.Store
 }
 
 // Service manages password-based unlock, encryption, and rate limiting.
 type Service struct {
-	mu          sync.RWMutex
-	unlocked    bool
-	encKey      []byte
-	authData    *AuthData
-	authFile    string
-	configDir   string
-	logger      *slog.Logger
-	lockedAt    time.Time
-	sleep       func(time.Duration) // injectable for tests
+	mu         sync.RWMutex
+	unlocked   bool
+	encKey     []byte
+	authData   *AuthData
+	authFile   string
+	configDir  string
+	logger     *slog.Logger
+	keyStore   securestore.Store
+	keyAccount string
+	lockedAt   time.Time
+	sleep      func(time.Duration) // injectable for tests
 }
 
 // New creates a new auth Service. It reads auth.json if present and
@@ -139,10 +147,12 @@ func New(opts Options) (*Service, error) {
 	}
 
 	s := &Service{
-		authFile:  filepath.Join(opts.ConfigDir, "auth.json"),
-		configDir: opts.ConfigDir,
-		logger:    logger,
-		sleep:     time.Sleep,
+		authFile:   filepath.Join(opts.ConfigDir, "auth.json"),
+		configDir:  opts.ConfigDir,
+		logger:     logger,
+		keyStore:   opts.KeyStore,
+		keyAccount: rememberedKeyAccount(opts.ConfigDir),
+		sleep:      time.Sleep,
 	}
 
 	authData, err := s.loadAuthData()
@@ -162,7 +172,12 @@ func New(opts Options) (*Service, error) {
 		logger.Info("auth: not configured, app is open")
 	} else {
 		s.unlocked = false
-		logger.Info("auth: configured, app is locked")
+		s.resumeRememberedKey()
+		if s.unlocked {
+			logger.Info("auth: resumed from OS keychain")
+		} else {
+			logger.Info("auth: configured, app is locked")
+		}
 	}
 	return s, nil
 }
@@ -295,6 +310,7 @@ func (s *Service) SetupPassword(password string) error {
 	}
 	s.encKey = key
 	s.unlocked = true
+	s.rememberKey(key)
 	s.logger.Info("auth: password set up")
 	return nil
 }
@@ -360,15 +376,31 @@ func (s *Service) Unlock(password string) error {
 	s.encKey = key
 	s.unlocked = true
 	s.lockedAt = time.Time{}
+	s.rememberKey(key)
 	s.logger.Info("auth: unlocked")
 	return nil
 }
 
-// Lock re-encrypts files and zeros the key.
+// Lock re-encrypts files, removes the remembered key, and zeros the key.
+// It is the explicit user-controlled privacy boundary.
 func (s *Service) Lock() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if s.unlocked {
+		s.lockInternal()
+	}
+	if err := s.forgetRememberedKey(); err != nil {
+		return fmt.Errorf("auth: remove remembered key: %w", err)
+	}
+	return nil
+}
+
+// Suspend re-encrypts files before process shutdown but keeps the remembered
+// key. A later process owned by the same OS user can resume the session.
+func (s *Service) Suspend() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if !s.unlocked {
 		return nil
 	}
@@ -405,6 +437,9 @@ func (s *Service) ChangePassword(oldPwd, newPwd string) error {
 	}
 	if len(newPwd) < 4 {
 		return errors.New("auth: new password must be at least 4 characters")
+	}
+	if err := s.forgetRememberedKey(); err != nil {
+		return fmt.Errorf("auth: remove remembered key: %w", err)
 	}
 
 	newHash, err := createPasswordHash(newPwd)
@@ -572,6 +607,63 @@ func (s *Service) cleanupEncryptedFiles() {
 	}
 }
 
+func rememberedKeyAccount(configDir string) string {
+	canonical, err := filepath.Abs(configDir)
+	if err != nil {
+		canonical = configDir
+	}
+	sum := sha256.Sum256([]byte(filepath.Clean(canonical)))
+	return fmt.Sprintf("remember-unlock/v1/%x", sum[:])
+}
+
+func (s *Service) resumeRememberedKey() {
+	if s.keyStore == nil || !s.HasEncryptedConfig() {
+		return
+	}
+	key, err := s.keyStore.Get(s.keyAccount)
+	if errors.Is(err, securestore.ErrNotFound) {
+		return
+	}
+	if err != nil {
+		s.logger.Warn("auth: read remembered key", "err", err)
+		return
+	}
+	if len(key) != argon2KeyLen {
+		s.logger.Warn("auth: remembered key has invalid length")
+		if err := s.keyStore.Delete(s.keyAccount); err != nil {
+			s.logger.Warn("auth: remove invalid remembered key", "err", err)
+		}
+		return
+	}
+	if err := s.decryptConfigFiles(key); err != nil {
+		zeroBytes(key)
+		s.logger.Warn("auth: remembered key could not decrypt config", "err", err)
+		if delErr := s.keyStore.Delete(s.keyAccount); delErr != nil {
+			s.logger.Warn("auth: remove unusable remembered key", "err", delErr)
+		}
+		return
+	}
+	s.encKey = key
+	s.unlocked = true
+	s.lockedAt = time.Time{}
+}
+
+func (s *Service) rememberKey(key []byte) {
+	if s.keyStore == nil {
+		return
+	}
+	if err := s.keyStore.Set(s.keyAccount, key); err != nil {
+		s.logger.Warn("auth: store remembered key", "err", err)
+	}
+}
+
+func (s *Service) forgetRememberedKey() error {
+	if s.keyStore == nil {
+		return nil
+	}
+	return s.keyStore.Delete(s.keyAccount)
+}
+
 func fileExists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil
@@ -735,4 +827,3 @@ func zeroBytes(b []byte) {
 // cryptoRandRead is the testable inner of crypto/rand.Read. It allows
 // tests to inject a failing read.
 var cryptoRandRead = rand.Read
-

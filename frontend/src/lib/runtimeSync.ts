@@ -122,6 +122,8 @@ export function progressEventToOpStatus(
     bytes_transferred: transferred,
     total_bytes: total,
     current_file: String(data.current_file ?? prev?.current_file ?? ''),
+    stage: data.stage ? String(data.stage) : prev?.stage,
+    stage_detail: data.stage_detail ? String(data.stage_detail) : prev?.stage_detail,
     errors: Number(data.errors ?? prev?.errors ?? 0),
     checks: Number(data.checks ?? prev?.checks ?? 0),
     total_checks: Number(data.total_checks ?? prev?.total_checks ?? 0),
@@ -142,7 +144,11 @@ export type HydratedRuntime = {
   items: Flow[]
 }
 
-export function applyRuntimeSnapshot(snap: RuntimeSnapshot, items: Flow[]): HydratedRuntime {
+export function applyRuntimeSnapshot(
+  snap: RuntimeSnapshot,
+  items: Flow[],
+  previousSync?: Record<string, FlowOpSyncStatus>,
+): HydratedRuntime {
   const revision = Number(snap.revision ?? 0)
   const runStatus: Record<string, string> = {}
   const lastError: Record<string, string> = {}
@@ -170,6 +176,18 @@ export function applyRuntimeSnapshot(snap: RuntimeSnapshot, items: Flow[]): Hydr
     if (f.sync && typeof f.sync === 'object') {
       const st = progressEventToOpStatus('sync:progress', f.sync as Record<string, unknown>)
       if (st) opSyncStatus[f.id] = st
+    }
+  }
+
+  // The runtime hub and the direct WebSocket event fan-out are asynchronous.
+  // A snapshot can therefore describe a running flow before its matching
+  // progress event has reached the hub. Do not erase richer live transfers
+  // while that operation remains active.
+  for (const [flowID, live] of Object.entries(previousSync ?? {})) {
+    if (runStatus[flowID] !== 'running' && runStatus[flowID] !== 'cancelling') continue
+    const snapshotSync = opSyncStatus[flowID]
+    if (!snapshotSync || (live.transfers?.length ?? 0) > (snapshotSync.transfers?.length ?? 0)) {
+      opSyncStatus[flowID] = live
     }
   }
 

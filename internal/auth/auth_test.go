@@ -11,7 +11,34 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/gnasdev/gn-drive/internal/securestore"
 )
+
+type memoryKeyStore struct {
+	value []byte
+	found bool
+}
+
+func (s *memoryKeyStore) Get(string) ([]byte, error) {
+	if !s.found {
+		return nil, securestore.ErrNotFound
+	}
+	return append([]byte(nil), s.value...), nil
+}
+
+func (s *memoryKeyStore) Set(_ string, value []byte) error {
+	s.value = append(s.value[:0], value...)
+	s.found = true
+	return nil
+}
+
+func (s *memoryKeyStore) Delete(string) error {
+	zeroBytes(s.value)
+	s.value = nil
+	s.found = false
+	return nil
+}
 
 func newTestService(t *testing.T) *Service {
 	t.Helper()
@@ -56,6 +83,88 @@ func TestNew_LoadsExistingAuthData(t *testing.T) {
 	}
 	if s2.IsUnlocked() {
 		t.Error("reopened service should be locked until Unlock")
+	}
+}
+
+func TestNew_ResumesRememberedKeyAfterSuspend(t *testing.T) {
+	dir := t.TempDir()
+	store := &memoryKeyStore{}
+	s1, err := New(Options{ConfigDir: dir, KeyStore: store})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"rclone.conf", "gn-drive.db"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(name), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s1.SetupPassword("secret-pw-1"); err != nil {
+		t.Fatal(err)
+	}
+	if !store.found {
+		t.Fatal("setup should store a remembered key")
+	}
+	if err := s1.Suspend(); err != nil {
+		t.Fatal(err)
+	}
+
+	s2, err := New(Options{ConfigDir: dir, KeyStore: store})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !s2.IsUnlocked() {
+		t.Fatal("new service should resume from the remembered key")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rclone.conf")); err != nil {
+		t.Fatalf("rclone config should be decrypted: %v", err)
+	}
+}
+
+func TestLock_RemovesRememberedKey(t *testing.T) {
+	dir := t.TempDir()
+	store := &memoryKeyStore{}
+	s, err := New(Options{ConfigDir: dir, KeyStore: store})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetupPassword("secret-pw-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Lock(); err != nil {
+		t.Fatal(err)
+	}
+	if store.found {
+		t.Fatal("manual lock should remove the remembered key")
+	}
+}
+
+func TestNew_DiscardsUnusableRememberedKey(t *testing.T) {
+	dir := t.TempDir()
+	store := &memoryKeyStore{}
+	s1, err := New(Options{ConfigDir: dir, KeyStore: store})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "rclone.conf"), []byte("config"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := s1.SetupPassword("secret-pw-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s1.Suspend(); err != nil {
+		t.Fatal(err)
+	}
+	store.value = bytes.Repeat([]byte{1}, argon2KeyLen)
+
+	s2, err := New(Options{ConfigDir: dir, KeyStore: store})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s2.IsUnlocked() {
+		t.Fatal("invalid remembered key should leave the service locked")
+	}
+	if store.found {
+		t.Fatal("invalid remembered key should be removed")
 	}
 }
 

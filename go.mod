@@ -4,17 +4,21 @@ go 1.26.5
 
 require (
 	github.com/alexedwards/argon2id v1.0.0
+	github.com/coder/websocket v1.8.14
 	github.com/go-chi/chi/v5 v5.3.1
 	github.com/gofrs/flock v0.13.0
 	github.com/google/uuid v1.6.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/cobra v1.10.2
+	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/crypto v0.54.0
 	modernc.org/sqlite v1.56.0
 )
 
 require (
+	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

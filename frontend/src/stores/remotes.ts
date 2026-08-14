@@ -7,8 +7,12 @@ export const useRemotesStore = defineStore('remotes', () => {
   const api = useApi()
   const items = ref<Remote[]>([])
 
+  function hydrate(next: Remote[] | null | undefined) {
+    items.value = next ?? []
+  }
+
   async function load() {
-    items.value = (await api.get<Remote[]>('/api/v1/remotes')) ?? []
+    hydrate(await api.get<Remote[]>('/api/v1/remotes'))
   }
 
   async function add(name: string, type: string, config: string[] = []) {
@@ -31,5 +35,5 @@ export const useRemotesStore = defineStore('remotes', () => {
     }
   }
 
-  return { items, load, add, remove, test, error: api.error, loading: api.loading }
+  return { items, hydrate, load, add, remove, test, error: api.error, loading: api.loading }
 })

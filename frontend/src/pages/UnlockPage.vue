@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import AppAlert from '@/components/ui/Alert.vue'
+import BrandMark from '@/components/brand/BrandMark.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -48,12 +49,13 @@ async function submit() {
   >
     <div class="w-full max-w-[380px] rounded-md border border-border bg-surface px-7 py-8 shadow-[var(--shadow-paper)]">
       <div class="mb-6 flex items-center gap-2.5">
-        <div
-          class="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-[13px] font-bold text-white"
-        >
-          GN
+        <BrandMark :size="34" title="GN Drive" />
+        <div class="flex flex-col leading-none">
+          <div class="font-semibold tracking-tight">GN Drive</div>
+          <div class="mt-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+            {{ t('nav.brandSub') }}
+          </div>
         </div>
-        <div class="font-semibold">GN Drive</div>
       </div>
 
       <h1 class="mb-2 text-lg font-semibold" data-testid="unlock-title">

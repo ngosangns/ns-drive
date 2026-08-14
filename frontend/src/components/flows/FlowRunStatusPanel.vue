@@ -42,6 +42,20 @@ let lastFlowStatus = props.flowStatus
 
 const ss = computed(() => props.syncStatus)
 
+function stageLabel(stage: string | undefined): string | null {
+  switch (stage) {
+    case 'starting':
+    case 'connecting':
+    case 'listing':
+    case 'checking':
+    case 'transferring':
+    case 'retrying':
+      return t(`workspace.syncStages.${stage}`)
+    default:
+      return null
+  }
+}
+
 const progress = computed(() => {
   const p = ss.value?.progress ?? 0
   if (props.flowStatus === 'completed' && p <= 0) return 100
@@ -56,6 +70,8 @@ const detailedLabel = computed(() => {
   if (st !== 'running') return t('workspace.syncLabels.waiting')
   const s = ss.value
   if (!s) return t('workspace.syncLabels.preparing')
+  const stage = stageLabel(s.stage)
+  if (stage) return stage
   if ((s.transfers ?? []).some((f) => f.status === 'transferring')) {
     return t('workspace.syncLabels.transferring')
   }
@@ -107,6 +123,7 @@ const backendDetail = computed(() => {
   }
   const s = ss.value
   if (!s) return t('workspace.syncLabels.waitingBackend')
+  if (s.stage_detail) return s.stage_detail
   const syncing = fileGroups.value.syncing
   if (syncing.length === 1 && !syncing[0].name.startsWith('(')) {
     return syncing[0].name

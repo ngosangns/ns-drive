@@ -22,6 +22,8 @@ describe('runtimeSync', () => {
       state: 'running',
       transferred: 20,
       total: 100,
+      files_transferred: 2,
+      total_files: 5,
       transfers: [{ name: 'a.txt', status: 'transferring', progress: 20, size: 10, bytes: 2 }],
     })
     assert.ok(snap)
@@ -29,6 +31,8 @@ describe('runtimeSync', () => {
     assert.equal(snap!.op_id, 'op1')
     assert.equal(snap!.status, 'running')
     assert.equal(Math.round(snap!.progress), 20)
+    assert.equal(snap!.files_transferred, 2)
+    assert.equal(snap!.total_files, 5)
     assert.equal(snap!.transfers?.[0].name, 'a.txt')
   })
 
@@ -78,5 +82,22 @@ describe('runtimeSync', () => {
     assert.equal(out.items[0].operations?.[0].status, 'running')
     assert.equal(out.opSyncStatus.flow1.transfers?.[0].name, 'b.bin')
     assert.equal(out.runLog.flow1[0].label, 'Flow')
+  })
+
+  it('keeps live transfer details when a lagging snapshot has no sync payload', () => {
+    const out = applyRuntimeSnapshot(
+      { revision: 8, flows: [{ id: 'flow1', status: 'running', ops: [{ id: 'op1', status: 'running' }] }] },
+      [],
+      {
+        flow1: {
+          flow_id: 'flow1', op_id: 'op1', action: 'push', status: 'running', progress: 40,
+          speed_bps: 0, eta_secs: 0, files_transferred: 0, total_files: 1,
+          bytes_transferred: 40, total_bytes: 100, current_file: 'uploading.bin', errors: 0,
+          checks: 0, total_checks: 0, deletes: 0, renames: 0, updated_at: 1,
+          transfers: [{ name: 'uploading.bin', status: 'transferring', progress: 40, size: 100, bytes: 40 }],
+        },
+      },
+    )
+    assert.equal(out.opSyncStatus.flow1.transfers?.[0].name, 'uploading.bin')
   })
 })

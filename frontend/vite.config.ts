@@ -49,8 +49,8 @@ export default defineConfig({
           ? `http://127.0.0.1:${process.env.GN_DRIVE_DEV_PORT}`
           : 'http://127.0.0.1:53241',
         changeOrigin: false,
-        ws: false,
-        // SSE (/api/v1/events) must not be buffered by the dev proxy.
+        ws: true,
+        // WebSocket upgrades and long-lived API streams must not time out.
         timeout: 0,
         proxyTimeout: 0,
       },

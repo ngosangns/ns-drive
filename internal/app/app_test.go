@@ -8,8 +8,30 @@ import (
 
 	"github.com/gnasdev/gn-drive/internal/config"
 	"github.com/gnasdev/gn-drive/internal/logging"
+	"github.com/gnasdev/gn-drive/internal/securestore"
 	"github.com/gnasdev/gn-drive/internal/service"
 )
+
+type testKeyStore struct {
+	value []byte
+}
+
+func (s *testKeyStore) Get(string) ([]byte, error) {
+	if s.value == nil {
+		return nil, securestore.ErrNotFound
+	}
+	return append([]byte(nil), s.value...), nil
+}
+
+func (s *testKeyStore) Set(_ string, value []byte) error {
+	s.value = append(s.value[:0], value...)
+	return nil
+}
+
+func (s *testKeyStore) Delete(string) error {
+	s.value = nil
+	return nil
+}
 
 func TestClose_NilSafe(t *testing.T) {
 	// An app with all nil fields must Close without panic.
@@ -98,6 +120,33 @@ func TestNew_UnlockPassword_Correct(t *testing.T) {
 	defer a2.Close()
 	if !a2.Auth.IsUnlocked() {
 		t.Error("auth should be unlocked")
+	}
+}
+
+func TestNew_ResumesSessionAfterClose(t *testing.T) {
+	dir := t.TempDir()
+	keyStore := &testKeyStore{}
+	a1, err := New(context.Background(), Options{ConfigDir: dir, KeyStore: keyStore})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a1.Auth.SetupPassword("secret-pw-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a1.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	a2, err := New(context.Background(), Options{ConfigDir: dir, PortalMode: true, KeyStore: keyStore})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a2.Close()
+	if !a2.Auth.IsUnlocked() {
+		t.Fatal("app should resume an unlocked session after a normal close")
+	}
+	if a2.Store == nil {
+		t.Fatal("resumed app should open its data plane")
 	}
 }
 

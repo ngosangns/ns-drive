@@ -71,6 +71,14 @@ const vfEdges = computed<Edge[]>(() => {
       action: e.action,
       flowRunning: running.value,
       running: snap?.op_id === e.id && snap.status === 'running',
+      syncStatus: snap?.op_id === e.id ? snap.status : undefined,
+      progress: snap?.op_id === e.id ? snap.progress : undefined,
+      filesTransferred: snap?.op_id === e.id ? snap.files_transferred : undefined,
+      totalFiles: snap?.op_id === e.id ? snap.total_files : undefined,
+      checks: snap?.op_id === e.id ? snap.checks : undefined,
+      totalChecks: snap?.op_id === e.id ? snap.total_checks : undefined,
+      stage: snap?.op_id === e.id ? snap.stage : undefined,
+      stageDetail: snap?.op_id === e.id ? snap.stage_detail : undefined,
       transfers: snap?.op_id === e.id ? snap.transfers : undefined,
     },
   }))
@@ -98,7 +106,6 @@ function onPaneClick() {
 }
 
 function onNodeDragStop(ev: NodeDragEvent) {
-  if (running.value) return
   const nodes = ev.nodes?.length ? ev.nodes : ev.node ? [ev.node] : []
   void canvas.updatePositions(nodes.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y })))
 }
@@ -118,7 +125,7 @@ function onDelete() {
       :node-types="nodeTypes"
       :edge-types="edgeTypes"
       fit-view-on-init
-      :nodes-draggable="!running"
+      :nodes-draggable="true"
       :nodes-connectable="!running"
       :edges-updatable="false"
       :default-viewport="graph.viewport"

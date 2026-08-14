@@ -199,6 +199,14 @@ export default {
       etaCalc: 'calculating',
       toggleDetails: 'Toggle sync status details',
     },
+    syncStages: {
+      starting: 'Starting rclone',
+      connecting: 'Connecting to remote',
+      listing: 'Listing files',
+      checking: 'Checking files',
+      transferring: 'Transferring files',
+      retrying: 'Retrying remote request',
+    },
     canvas: {
       emptyFlows: 'No flows yet.',
       palette: 'Locations',

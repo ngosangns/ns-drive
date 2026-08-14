@@ -199,7 +199,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     viewport?: FlowGraph['viewport'],
   ) {
     const flow = activeFlow.value
-    if (!flow || flowLocked(flow)) return
+    if (!flow) return
     const g = toGraph(flow)
     const map = new Map(positions.map((p) => [p.id, p]))
     for (const n of g.nodes) {
@@ -210,6 +210,12 @@ export const useCanvasStore = defineStore('canvas', () => {
       }
     }
     if (viewport) g.viewport = viewport
+    if (flowLocked(flow)) {
+      const { operations, canvas_json } = fromGraph(g, flow.operations)
+      writeLocal({ ...flow, operations, canvas_json })
+      dirty.value = true
+      return
+    }
     await persist(g, flow)
   }
 

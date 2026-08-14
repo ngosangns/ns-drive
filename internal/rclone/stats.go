@@ -269,6 +269,43 @@ func ingestJSONLogLine(line string, s *Stats, track *fileTransferTracker) {
 	track.upsert(ft)
 }
 
+// updateStageFromLog reduces rclone's implementation-specific messages into
+// safe, stable UI lifecycle markers. Raw messages can contain local paths and
+// credentials, so only object names are exposed as optional detail.
+func updateStageFromLog(line string, s *Stats) {
+	line = strings.TrimSpace(line)
+	if len(line) == 0 || line[0] != '{' || s == nil {
+		return
+	}
+	var entry jsonLogLine
+	if err := json.Unmarshal([]byte(line), &entry); err != nil {
+		return
+	}
+	msg := strings.ToLower(entry.Msg)
+	stage := ""
+	switch {
+	case (entry.Stats != nil && len(entry.Stats.Transferring) > 0) || strings.Contains(msg, "copied") || strings.Contains(msg, "transferred") || strings.Contains(msg, "moved"):
+		stage = "transferring"
+	case strings.Contains(msg, "checking") || strings.Contains(msg, "check"):
+		stage = "checking"
+	case strings.Contains(msg, "listing") || strings.Contains(msg, "list "):
+		stage = "listing"
+	case strings.Contains(msg, "retry") || strings.Contains(msg, "rate limit") || strings.Contains(msg, "throttle"):
+		stage = "retrying"
+	case strings.Contains(msg, "starting") || strings.Contains(msg, "config file") || strings.Contains(msg, "using "):
+		stage = "connecting"
+	}
+	if stage == "" {
+		return
+	}
+	s.Stage = stage
+	if entry.Object != "" {
+		s.StageDetail = entry.Object
+	} else {
+		s.StageDetail = ""
+	}
+}
+
 // parseStatsLine extracts progress numbers from an rclone --stats-one-line line.
 // Format (approximate): "2025/01/15 10:00:00 INFO  : ... TRANSFER: 1.024k/2.048k ..."
 func parseStatsLine(line string, s *Stats) {

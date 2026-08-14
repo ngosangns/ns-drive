@@ -20,6 +20,7 @@ import (
 	"github.com/gnasdev/gn-drive/internal/logging"
 	"github.com/gnasdev/gn-drive/internal/rclone"
 	"github.com/gnasdev/gn-drive/internal/runtimehub"
+	"github.com/gnasdev/gn-drive/internal/securestore"
 	"github.com/gnasdev/gn-drive/internal/service"
 	"github.com/gnasdev/gn-drive/internal/store"
 	"github.com/gnasdev/gn-drive/internal/syncengine"
@@ -62,6 +63,9 @@ type Options struct {
 	PortalMode bool
 	// Version is the running binary version (ldflags). Empty → "dev".
 	Version string
+	// KeyStore enables session resumption through the signed-in OS user's
+	// credential store. It is supplied by the interactive run command.
+	KeyStore securestore.Store
 }
 
 // New constructs a new App and initializes services.
@@ -97,6 +101,7 @@ func New(ctx context.Context, opts Options) (*App, error) {
 	authSvc, err := auth.New(auth.Options{
 		ConfigDir: cfg.ConfigDir,
 		Logger:    log,
+		KeyStore:  opts.KeyStore,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("auth: %w", err)
@@ -303,7 +308,7 @@ func (a *App) Close() error {
 		errs = append(errs, err)
 	}
 	if a.Auth != nil {
-		_ = a.Auth.Lock()
+		_ = a.Auth.Suspend()
 	}
 	return errors.Join(errs...)
 }

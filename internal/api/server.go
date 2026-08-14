@@ -107,6 +107,7 @@ func (s *Server) apiRouter() chi.Router {
 	r.Post("/auth/lock", s.handleLock)
 	r.Post("/auth/change-password", s.handleChangePassword)
 	r.Get("/events", s.handleSSE)
+	r.Get("/state", s.handleStateSocket)
 	r.Get("/runtime", s.handleRuntime)
 
 	// Settings

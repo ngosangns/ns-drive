@@ -7,10 +7,10 @@ import {
   PhMoon,
   PhLock,
   PhCircle,
-  PhCloud,
   PhGearSix,
   PhSquaresFour,
 } from '@phosphor-icons/vue'
+import BrandMark from '@/components/brand/BrandMark.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { api } from '@/api/client'
@@ -76,12 +76,17 @@ function goSettings() {
   >
     <button
       type="button"
-      class="flex items-center gap-2 font-bold text-text"
+      class="group flex items-center gap-2.5 text-text"
       data-testid="nav-workspace"
       @click="goWorkspace"
     >
-      <PhCloud :size="22" weight="bold" />
-      <span class="text-lg">GN Drive</span>
+      <BrandMark :size="30" title="GN Drive" class="transition-transform duration-150 group-hover:scale-105" />
+      <span class="flex flex-col items-start leading-none">
+        <span class="text-[15px] font-bold tracking-tight">GN Drive</span>
+        <span class="mt-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+          {{ t('nav.brandSub') }}
+        </span>
+      </span>
     </button>
 
     <div class="flex items-center gap-1.5 text-xs font-bold text-text/80">

@@ -13,9 +13,9 @@ const route = useRoute()
 /** Unlocked app uses single-page shell (topbar + main), like desktop v0.4. */
 const showLayout = computed(() => auth.unlocked && route.name !== 'unlock')
 
-/** SSE at app shell so flow/run events keep flowing even when Workspace is deactivated. */
-const sseEnabled = computed(() => auth.unlocked)
-const { connected: eventsConnected } = useEventStream({ enabled: sseEnabled })
+/** State socket lives at app shell so runtime updates survive Workspace navigation. */
+const stateSocketEnabled = computed(() => auth.unlocked)
+const { connected: eventsConnected } = useEventStream({ enabled: stateSocketEnabled })
 provide('eventsConnected', eventsConnected)
 </script>
 

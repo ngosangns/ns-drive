@@ -23,7 +23,7 @@ const path = computed(() => props.data.path || '/')
   <div
     class="w-[192px] rounded-md border bg-surface px-3 py-2 shadow-[var(--shadow-paper)]"
     :class="[
-      data.running ? 'cursor-not-allowed' : 'cursor-move',
+      'cursor-move',
       selected
         ? 'border-accent-strong'
         : data.failed

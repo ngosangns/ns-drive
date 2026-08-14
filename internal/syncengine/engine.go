@@ -92,16 +92,16 @@ type Deps struct {
 
 // New creates a new sync engine (not yet started).
 func New(deps Deps) *Engine {
-    if deps.Logger == nil {
-        deps.Logger = slog.Default()
-    }
-    return &Engine{
-        log:    deps.Logger,
-        bus:    deps.Bus,
-        store:  deps.Store,
-        rclone: deps.Rclone,
-        running: make(map[string]struct{}),
-    }
+	if deps.Logger == nil {
+		deps.Logger = slog.Default()
+	}
+	return &Engine{
+		log:     deps.Logger,
+		bus:     deps.Bus,
+		store:   deps.Store,
+		rclone:  deps.Rclone,
+		running: make(map[string]struct{}),
+	}
 }
 
 // SetFlowExecutor wires the flow runner used by flow cron schedules.
@@ -156,45 +156,45 @@ func (e *Engine) Cancel() {
 
 // Stop gracefully shuts down the engine.
 func (e *Engine) Stop(ctx context.Context) error {
-    if e.cancel == nil {
-        return nil
-    }
-    e.cancel()
-    if e.cron != nil {
-        <-e.cron.Stop().Done()
-    }
+	if e.cancel == nil {
+		return nil
+	}
+	e.cancel()
+	if e.cron != nil {
+		<-e.cron.Stop().Done()
+	}
 	e.active.Range(func(_, v any) bool {
 		if t, ok := v.(*Task); ok {
 			t.Cancel()
 		}
 		return true
 	})
-    e.active = sync.Map{}
-    e.runningMu.Lock()
-    e.running = make(map[string]struct{})
-    e.runningMu.Unlock()
-    e.schedule = nil
-    e.cron = nil
-    e.ctx = nil
-    e.cancel = nil
-    e.log.Info("syncengine: stopped")
-    return nil
+	e.active = sync.Map{}
+	e.runningMu.Lock()
+	e.running = make(map[string]struct{})
+	e.runningMu.Unlock()
+	e.schedule = nil
+	e.cron = nil
+	e.ctx = nil
+	e.cancel = nil
+	e.log.Info("syncengine: stopped")
+	return nil
 }
 
 // StartSync starts a sync task for a named profile and returns its taskID.
 func (e *Engine) StartSync(ctx context.Context, action, profileName string) (string, error) {
-    if e.ctx == nil {
-        return "", ErrNotRunning
-    }
-    if e.store == nil {
-        return "", errors.New("syncengine: store not ready")
-    }
+	if e.ctx == nil {
+		return "", ErrNotRunning
+	}
+	if e.store == nil {
+		return "", errors.New("syncengine: store not ready")
+	}
 
-    p, err := e.store.Profiles().Get(ctx, profileName)
-    if err != nil {
-        return "", err
-    }
-    return e.startWithProfile(ctx, action, profileName, p)
+	p, err := e.store.Profiles().Get(ctx, profileName)
+	if err != nil {
+		return "", err
+	}
+	return e.startWithProfile(ctx, action, profileName, p)
 }
 
 // StartPathSync runs an ad-hoc sync (flow operation) without a stored profile.
@@ -222,41 +222,41 @@ func (e *Engine) StartPathSync(ctx context.Context, action, busyKey, from, to st
 }
 
 func (e *Engine) startWithProfile(ctx context.Context, action, busyKey string, p *store.Profile) (string, error) {
-    // Reject a concurrent run for the same key (see ErrProfileBusy).
-    e.runningMu.Lock()
-    if _, busy := e.running[busyKey]; busy {
-        e.runningMu.Unlock()
-        return "", ErrProfileBusy
-    }
-    e.running[busyKey] = struct{}{}
-    e.runningMu.Unlock()
+	// Reject a concurrent run for the same key (see ErrProfileBusy).
+	e.runningMu.Lock()
+	if _, busy := e.running[busyKey]; busy {
+		e.runningMu.Unlock()
+		return "", ErrProfileBusy
+	}
+	e.running[busyKey] = struct{}{}
+	e.runningMu.Unlock()
 
-    task := &Task{
-        ID:     uuid.New().String(),
-        Name:   busyKey,
-        Action: action,
-        Status: "running",
-    }
-    e.active.Store(task.ID, task)
-    parent := e.ctx
-    if parent == nil {
-        e.runningMu.Lock()
-        delete(e.running, busyKey)
-        e.runningMu.Unlock()
-        e.active.Delete(task.ID)
-        return "", ErrNotRunning
-    }
-    task.ctx, task.cancel = context.WithCancel(parent)
+	task := &Task{
+		ID:     uuid.New().String(),
+		Name:   busyKey,
+		Action: action,
+		Status: "running",
+	}
+	e.active.Store(task.ID, task)
+	parent := e.ctx
+	if parent == nil {
+		e.runningMu.Lock()
+		delete(e.running, busyKey)
+		e.runningMu.Unlock()
+		e.active.Delete(task.ID)
+		return "", ErrNotRunning
+	}
+	task.ctx, task.cancel = context.WithCancel(parent)
 
-    go e.runSync(task, p, action)
+	go e.runSync(task, p, action)
 
-    e.bus.Publish(eventbus.TopicSyncStarted, eventbus.SyncStartedEvent{
-        TaskID:    task.ID,
-        ProfileID: busyKey,
-        Action:    action,
-    })
+	e.bus.Publish(eventbus.TopicSyncStarted, eventbus.SyncStartedEvent{
+		TaskID:    task.ID,
+		ProfileID: busyKey,
+		Action:    action,
+	})
 
-    return task.ID, nil
+	return task.ID, nil
 }
 
 // WaitTask blocks until the given task finishes and returns nil only on success.
@@ -292,12 +292,12 @@ func (e *Engine) WaitTask(ctx context.Context, taskID string) error {
 
 // StopSync cancels an active sync task.
 func (e *Engine) StopSync(ctx context.Context, taskID string) error {
-    if v, ok := e.active.Load(taskID); ok {
-        t := v.(*Task)
-        t.Cancel()
-        return nil
-    }
-    return errors.New("syncengine: task not found")
+	if v, ok := e.active.Load(taskID); ok {
+		t := v.(*Task)
+		t.Cancel()
+		return nil
+	}
+	return errors.New("syncengine: task not found")
 }
 
 // ActiveTasks returns snapshots of all currently running tasks. The
@@ -305,16 +305,16 @@ func (e *Engine) StopSync(ctx context.Context, taskID string) error {
 // can iterate, marshal, and modify the snapshots without holding the
 // engine's mutex.
 func (e *Engine) ActiveTasks(ctx context.Context) ([]TaskSnapshot, error) {
-    var tasks []TaskSnapshot
-    e.active.Range(func(_, v any) bool {
-        t, ok := v.(*Task)
-        if !ok {
-            return true
-        }
-        tasks = append(tasks, t.Snapshot())
-        return true
-    })
-    return tasks, nil
+	var tasks []TaskSnapshot
+	e.active.Range(func(_, v any) bool {
+		t, ok := v.(*Task)
+		if !ok {
+			return true
+		}
+		tasks = append(tasks, t.Snapshot())
+		return true
+	})
+	return tasks, nil
 }
 
 // RegisterSchedule adds or updates a cron job for a schedule. If a job
@@ -324,70 +324,70 @@ func (e *Engine) ActiveTasks(ctx context.Context) ([]TaskSnapshot, error) {
 // Cron expressions may be 5-field (UI) or 6-field (seconds-aware). They are
 // normalized via NormalizeCron before registration.
 func (e *Engine) RegisterSchedule(ctx context.Context, sch *store.Schedule) {
-    if sch == nil {
-        return
-    }
-    e.cronMu.Lock()
-    defer e.cronMu.Unlock()
-    if e.cron == nil {
-        return
-    }
-    // Always drop any prior entry for this schedule ID so re-registration
-    // with a new cron expression replaces the old one cleanly.
-    e.removeLocked(sch.ID)
-    if !sch.Enabled || sch.Cron == "" {
-        return
-    }
-    expr, err := NormalizeCron(sch.Cron)
-    if err != nil {
-        e.log.Warn("cron: add func failed", "schedule", sch.ID, "err", err)
-        return
-    }
-    id, err := e.cron.AddFunc(expr, func() {
-        e.triggerSchedule(sch)
-    })
-    if err != nil {
-        e.log.Warn("cron: add func failed", "schedule", sch.ID, "err", err)
-        return
-    }
-    e.schedule[sch.ID] = id
-    e.log.Info("cron: registered", "schedule", sch.ID, "cron", expr)
+	if sch == nil {
+		return
+	}
+	e.cronMu.Lock()
+	defer e.cronMu.Unlock()
+	if e.cron == nil {
+		return
+	}
+	// Always drop any prior entry for this schedule ID so re-registration
+	// with a new cron expression replaces the old one cleanly.
+	e.removeLocked(sch.ID)
+	if !sch.Enabled || sch.Cron == "" {
+		return
+	}
+	expr, err := NormalizeCron(sch.Cron)
+	if err != nil {
+		e.log.Warn("cron: add func failed", "schedule", sch.ID, "err", err)
+		return
+	}
+	id, err := e.cron.AddFunc(expr, func() {
+		e.triggerSchedule(sch)
+	})
+	if err != nil {
+		e.log.Warn("cron: add func failed", "schedule", sch.ID, "err", err)
+		return
+	}
+	e.schedule[sch.ID] = id
+	e.log.Info("cron: registered", "schedule", sch.ID, "cron", expr)
 }
 
 // triggerSchedule runs the body of a cron-fired schedule: log, publish the
 // event, and start the sync. It is a separate method so tests can invoke it
 // without waiting for the real cron to tick.
 func (e *Engine) triggerSchedule(sch *store.Schedule) {
-    e.log.Info("cron: triggering", "schedule", sch.ID, "profile", sch.ProfileName)
-    e.bus.Publish(eventbus.TopicScheduleTriggered, eventbus.ScheduleTriggeredEvent{
-        ScheduleID: sch.ID,
-        ProfileID:  sch.ProfileName,
-        Action:     sch.Action,
-    })
-    if _, err := e.StartSync(context.Background(), sch.Action, sch.ProfileName); err != nil {
-        e.log.Warn("cron: sync not started", "schedule", sch.ID, "profile", sch.ProfileName, "err", err)
-    }
+	e.log.Info("cron: triggering", "schedule", sch.ID, "profile", sch.ProfileName)
+	e.bus.Publish(eventbus.TopicScheduleTriggered, eventbus.ScheduleTriggeredEvent{
+		ScheduleID: sch.ID,
+		ProfileID:  sch.ProfileName,
+		Action:     sch.Action,
+	})
+	if _, err := e.StartSync(context.Background(), sch.Action, sch.ProfileName); err != nil {
+		e.log.Warn("cron: sync not started", "schedule", sch.ID, "profile", sch.ProfileName, "err", err)
+	}
 }
 
 // UnregisterSchedule removes the cron entry for the given schedule ID.
 // Safe to call before Start (no-op) and when no entry exists (no-op).
 func (e *Engine) UnregisterSchedule(id string) {
-    e.cronMu.Lock()
-    defer e.cronMu.Unlock()
-    e.removeLocked(id)
+	e.cronMu.Lock()
+	defer e.cronMu.Unlock()
+	e.removeLocked(id)
 }
 
 // removeLocked is the unsynchronized helper. Caller must hold e.cronMu.
 func (e *Engine) removeLocked(id string) {
-    entryID, ok := e.schedule[id]
-    if !ok {
-        return
-    }
-    if e.cron != nil {
-        e.cron.Remove(entryID)
-    }
-    delete(e.schedule, id)
-    e.log.Info("cron: unregistered", "schedule", id)
+	entryID, ok := e.schedule[id]
+	if !ok {
+		return
+	}
+	if e.cron != nil {
+		e.cron.Remove(entryID)
+	}
+	delete(e.schedule, id)
+	e.log.Info("cron: unregistered", "schedule", id)
 }
 
 func (e *Engine) loadSchedules() {
@@ -503,37 +503,37 @@ func (e *Engine) runSync(t *Task, p *store.Profile, action string) {
 
 	e.log.Info("sync: started", "task", t.ID, "profile", p.Name, "action", action)
 
-    // Record the run as in-progress so the History view shows it immediately.
-    // History().Save upserts by task ID, so the terminal Save below updates
-    // this same row rather than inserting a duplicate.
-    e.saveHistory(&store.HistoryEntry{
-        ID:          t.ID,
-        ProfileName: p.Name,
-        Action:      action,
-        State:       "running",
-        StartedAt:   startedAt.UTC().Format(time.RFC3339),
-    })
+	// Record the run as in-progress so the History view shows it immediately.
+	// History().Save upserts by task ID, so the terminal Save below updates
+	// this same row rather than inserting a duplicate.
+	e.saveHistory(&store.HistoryEntry{
+		ID:          t.ID,
+		ProfileName: p.Name,
+		Action:      action,
+		State:       "running",
+		StartedAt:   startedAt.UTC().Format(time.RFC3339),
+	})
 
-    res, err := e.rclone.Sync(t.ctx, rclone.SyncConfig{
-        Action:  rclone.Action(action),
-        Source:  p.From,
-        Dest:    p.To,
-        Profile: profileFlagsFromStore(p),
-    }, func(s rclone.Stats) {
-        t.Mu.Lock()
-        t.Stats = s
-        t.Mu.Unlock()
+	res, err := e.rclone.Sync(t.ctx, rclone.SyncConfig{
+		Action:  rclone.Action(action),
+		Source:  p.From,
+		Dest:    p.To,
+		Profile: profileFlagsFromStore(p),
+	}, func(s rclone.Stats) {
+		t.Mu.Lock()
+		t.Stats = s
+		t.Mu.Unlock()
 		e.publishSyncProgress(t.ID, p.Name, action, "running", s, "")
 	})
 
-    endedAt := time.Now()
+	endedAt := time.Now()
 
-    // Prefer the result's parsed stats; fall back to the last progress
-    // snapshot if the run errored before producing a SyncResult.
-    finalStats := t.Stats
-    if res != nil {
-        finalStats = res.Stats
-    }
+	// Prefer the result's parsed stats; fall back to the last progress
+	// snapshot if the run errored before producing a SyncResult.
+	finalStats := t.Stats
+	if res != nil {
+		finalStats = res.Stats
+	}
 
 	t.Mu.Lock()
 	t.EndedAt = endedAt
@@ -582,23 +582,23 @@ func (e *Engine) runSync(t *Task, p *store.Profile, action string) {
 	}
 	t.Mu.Unlock()
 
-    // Persist the terminal outcome to history (upsert over the running row).
-    entry := &store.HistoryEntry{
-        ID:          t.ID,
-        ProfileName: p.Name,
-        Action:      action,
-        State:       state,
-        StartedAt:   startedAt.UTC().Format(time.RFC3339),
-        FinishedAt:  endedAt.UTC().Format(time.RFC3339),
-        Duration:    int64(endedAt.Sub(startedAt).Seconds()),
-        Bytes:       finalStats.Bytes,
-        Files:       int(finalStats.Files),
-        Errors:      int(finalStats.Errors),
-    }
-    if err != nil {
-        entry.ErrorMessage = truncateErrMsg(err.Error(), 1000)
-    }
-    e.saveHistory(entry)
+	// Persist the terminal outcome to history (upsert over the running row).
+	entry := &store.HistoryEntry{
+		ID:          t.ID,
+		ProfileName: p.Name,
+		Action:      action,
+		State:       state,
+		StartedAt:   startedAt.UTC().Format(time.RFC3339),
+		FinishedAt:  endedAt.UTC().Format(time.RFC3339),
+		Duration:    int64(endedAt.Sub(startedAt).Seconds()),
+		Bytes:       finalStats.Bytes,
+		Files:       int(finalStats.Files),
+		Errors:      int(finalStats.Errors),
+	}
+	if err != nil {
+		entry.ErrorMessage = truncateErrMsg(err.Error(), 1000)
+	}
+	e.saveHistory(entry)
 }
 
 // profileFlagsFromStore maps store.Profile (and flow SyncConfig-filled profiles)
@@ -699,6 +699,8 @@ func (e *Engine) publishSyncProgress(taskID, profileID, action, state string, s 
 		TotalFiles:       int(s.FilesTotal),
 		Errors:           int(s.Errors),
 		CurrentFile:      s.CurrentFile,
+		Stage:            s.Stage,
+		StageDetail:      s.StageDetail,
 		Checks:           s.Checks,
 		TotalChecks:      s.ChecksTotal,
 		Deletes:          s.Deletes,
@@ -712,12 +714,12 @@ func (e *Engine) publishSyncProgress(taskID, profileID, action, state string, s 
 // tests construct the engine without one) and logs—rather than fails—on
 // error, so a sync outcome is not lost on a transient write hiccup.
 func (e *Engine) saveHistory(entry *store.HistoryEntry) {
-    if e.store == nil {
-        return
-    }
-    if err := e.store.History().Save(context.Background(), entry); err != nil {
-        e.log.Warn("sync: persist history failed", "task", entry.ID, "err", err)
-    }
+	if e.store == nil {
+		return
+	}
+	if err := e.store.History().Save(context.Background(), entry); err != nil {
+		e.log.Warn("sync: persist history failed", "task", entry.ID, "err", err)
+	}
 }
 
 // truncateErrMsg bounds the length of an error string stored in history.

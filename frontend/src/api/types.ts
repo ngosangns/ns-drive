@@ -159,6 +159,8 @@ export interface FlowOpSyncStatus {
   bytes_transferred: number
   total_bytes: number
   current_file: string
+	stage?: 'starting' | 'connecting' | 'listing' | 'checking' | 'transferring' | 'retrying' | string
+	stage_detail?: string
   errors: number
   checks: number
   total_checks: number
@@ -198,6 +200,14 @@ export interface RuntimeSnapshot {
   revision?: number
   type?: string
   flows?: RuntimeFlowState[]
+}
+
+/** Canonical projection sent by the backend state WebSocket on every connect. */
+export interface StateSnapshot {
+  flows: Flow[]
+  remotes: Remote[]
+  settings: Record<string, string>
+  runtime: RuntimeSnapshot
 }
 
 export interface SyncTask {

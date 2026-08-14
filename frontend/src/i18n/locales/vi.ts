@@ -198,6 +198,14 @@ export default {
       etaCalc: 'đang tính',
       toggleDetails: 'Thu gọn / mở chi tiết trạng thái',
     },
+    syncStages: {
+      starting: 'Đang khởi tạo rclone',
+      connecting: 'Đang kết nối remote',
+      listing: 'Đang lập danh sách file',
+      checking: 'Đang kiểm tra file',
+      transferring: 'Đang truyền file',
+      retrying: 'Đang thử lại yêu cầu remote',
+    },
     canvas: {
       emptyFlows: 'Chưa có flow.',
       palette: 'Vị trí',

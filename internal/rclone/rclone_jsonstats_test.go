@@ -44,6 +44,22 @@ func TestParseJSONStatsLine(t *testing.T) {
 	}
 }
 
+func TestUpdateStageFromLog(t *testing.T) {
+	var s Stats
+	updateStageFromLog(`{"level":"info","msg":"Listing objects"}`, &s)
+	if s.Stage != "listing" || s.StageDetail != "" {
+		t.Fatalf("listing stage = %q/%q", s.Stage, s.StageDetail)
+	}
+	updateStageFromLog(`{"level":"info","msg":"Copied (new)","object":"folder/photo.jpg"}`, &s)
+	if s.Stage != "transferring" || s.StageDetail != "folder/photo.jpg" {
+		t.Fatalf("transfer stage = %q/%q", s.Stage, s.StageDetail)
+	}
+	updateStageFromLog(`{"level":"notice","msg":"Retry 1/3"}`, &s)
+	if s.Stage != "retrying" {
+		t.Fatalf("retry stage = %q", s.Stage)
+	}
+}
+
 // TestSync_JSONStatsParsed exercises the full Sync path with a fake rclone that
 // emits a JSON-log stats line, verifying the progress callback receives parsed
 // values.

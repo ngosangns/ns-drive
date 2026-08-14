@@ -43,6 +43,8 @@ type SyncProgressEvent struct {
 	ETA              int64   `json:"eta_secs"`
 	Errors           int     `json:"errors"`
 	CurrentFile      string  `json:"current_file"`
+	Stage            string  `json:"stage,omitempty"`
+	StageDetail      string  `json:"stage_detail,omitempty"`
 	FilesTransferred int     `json:"files_transferred"`
 	TotalFiles       int     `json:"total_files"`
 	Checks           int64   `json:"checks"`
