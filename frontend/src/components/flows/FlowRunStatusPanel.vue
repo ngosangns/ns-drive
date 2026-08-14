@@ -123,12 +123,8 @@ const backendDetail = computed(() => {
   }
   const s = ss.value
   if (!s) return t('workspace.syncLabels.waitingBackend')
-  if (s.stage_detail) return s.stage_detail
   const syncing = fileGroups.value.syncing
-  if (syncing.length === 1 && !syncing[0].name.startsWith('(')) {
-    return syncing[0].name
-  }
-  if (syncing.length > 1) {
+  if (syncing.length > 0) {
     return t('workspace.syncLabels.syncingN', { n: syncing.length })
   }
   if (s.total_files > 0) {

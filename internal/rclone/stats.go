@@ -74,8 +74,8 @@ func (t *fileTransferTracker) upsert(ft FileTransfer) {
 		return
 	}
 	if len(t.order) >= maxTrackedFiles && ft.Status != "failed" {
-		// Prefer keeping failures; drop oldest completed if full.
-		t.evictOldestCompleted()
+		// Prefer keeping failures; drop a replaceable row if full.
+		t.evictReplaceable()
 		if len(t.order) >= maxTrackedFiles {
 			return
 		}
@@ -85,7 +85,19 @@ func (t *fileTransferTracker) upsert(ft FileTransfer) {
 	t.order = append(t.order, ft.Name)
 }
 
-func (t *fileTransferTracker) evictOldestCompleted() {
+// evictReplaceable frees a slot for a fresher live entry. Pending
+// placeholders carry no real progress info — the synthetic "(N pending)"
+// row in snapshot already covers their count — so they are dropped first.
+// Completed/checked rows are the next best candidate. Active
+// (transferring/checking) and failed rows are never evicted here.
+func (t *fileTransferTracker) evictReplaceable() {
+	for i, name := range t.order {
+		if ft := t.byName[name]; ft != nil && ft.Status == "pending" {
+			delete(t.byName, name)
+			t.order = append(t.order[:i], t.order[i+1:]...)
+			return
+		}
+	}
 	for i, name := range t.order {
 		if ft := t.byName[name]; ft != nil && (ft.Status == "completed" || ft.Status == "checked") {
 			delete(t.byName, name)
@@ -96,7 +108,11 @@ func (t *fileTransferTracker) evictOldestCompleted() {
 }
 
 // seedPending inserts listed files as status=pending without demoting names
-// already known as transferring/completed/failed/checking.
+// already known as transferring/completed/failed/checking. Unlike upsert,
+// this never evicts existing rows — a cosmetic placeholder must not push out
+// a real in-flight or completed transfer. When the tracker is already full,
+// the file is simply left out of the named list and folded into the
+// synthetic "(N pending)" count in snapshot instead.
 func (t *fileTransferTracker) seedPending(entries []FileEntry) {
 	for _, e := range entries {
 		if e.IsDir {
@@ -116,13 +132,18 @@ func (t *fileTransferTracker) seedPending(entries []FileEntry) {
 			}
 			continue
 		}
-		t.upsert(FileTransfer{
+		if len(t.order) >= maxTrackedFiles {
+			continue
+		}
+		cp := FileTransfer{
 			Name:     name,
 			Size:     e.Size,
 			Bytes:    0,
 			Progress: 0,
 			Status:   "pending",
-		})
+		}
+		t.byName[name] = &cp
+		t.order = append(t.order, name)
 	}
 }
 

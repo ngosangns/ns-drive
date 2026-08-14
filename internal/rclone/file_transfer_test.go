@@ -1,6 +1,7 @@
 package rclone
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -66,6 +67,33 @@ func TestFileTransferTracker_SnapshotSyntheticPending(t *testing.T) {
 		if ft.Name == "(2 pending)" || (len(ft.Name) > 0 && ft.Name[0] == '(') {
 			t.Fatalf("unexpected synthetic when named pending cover total: %+v", ft)
 		}
+	}
+}
+
+// TestFileTransferTracker_SeedNeverEvictsLiveProgress reproduces a bug where
+// a bulk seedPending call (which runs concurrently with the transfer and can
+// land after real progress already arrived) evicted completed/transferring
+// rows to make room for cosmetic pending placeholders, hiding real progress
+// from the UI.
+func TestFileTransferTracker_SeedNeverEvictsLiveProgress(t *testing.T) {
+	tr := newFileTransferTracker()
+	// Real progress arrives first, as it does when transfers start before the
+	// (slow, recursive) pending listing finishes.
+	tr.upsert(FileTransfer{Name: "done.txt", Status: "completed", Progress: 100})
+	tr.upsert(FileTransfer{Name: "active.txt", Status: "transferring", Progress: 40})
+
+	// Fill the tracker with pending placeholders past capacity.
+	entries := make([]FileEntry, 0, maxTrackedFiles+10)
+	for i := 0; i < maxTrackedFiles+10; i++ {
+		entries = append(entries, FileEntry{Path: fmt.Sprintf("seed-%d.bin", i), Size: 1})
+	}
+	tr.seedPending(entries)
+
+	if tr.byName["done.txt"] == nil || tr.byName["done.txt"].Status != "completed" {
+		t.Fatalf("done.txt evicted or demoted by pending seed: %+v", tr.byName["done.txt"])
+	}
+	if tr.byName["active.txt"] == nil || tr.byName["active.txt"].Status != "transferring" {
+		t.Fatalf("active.txt evicted or demoted by pending seed: %+v", tr.byName["active.txt"])
 	}
 }
 
