@@ -36,6 +36,12 @@ const edgeTypes = {
   sync: markRaw(SyncEdge),
 } as unknown as EdgeTypesObject
 
+const running = computed(() => {
+  const id = activeFlow.value?.id
+  if (!id) return false
+  return isActiveRun(flows.flowStatusOf(id))
+})
+
 const vfNodes = computed<Node[]>(() =>
   graph.value.nodes.map((n) => ({
     id: n.id,
@@ -46,8 +52,8 @@ const vfNodes = computed<Node[]>(() =>
       remote: n.remote,
       path: n.path,
       label: n.label,
-      running: false,
       failed: false,
+      running: running.value,
     },
   })),
 )
@@ -63,16 +69,11 @@ const vfEdges = computed<Edge[]>(() => {
     selected: selection.value?.kind === 'edge' && selection.value.id === e.id,
     data: {
       action: e.action,
+      flowRunning: running.value,
       running: snap?.op_id === e.id && snap.status === 'running',
       transfers: snap?.op_id === e.id ? snap.transfers : undefined,
     },
   }))
-})
-
-const running = computed(() => {
-  const id = activeFlow.value?.id
-  if (!id) return false
-  return isActiveRun(flows.flowStatusOf(id))
 })
 
 function onConnect(c: Connection) {

@@ -208,6 +208,12 @@ export default {
       duplicateEdge: 'Cạnh đồng bộ này đã tồn tại.',
       selfLoop: 'Không nối một vị trí vào chính nó.',
       resizePanel: 'Đổi độ rộng panel cấu hình',
+      errorFiles: 'File lỗi',
+      processedFiles: 'File đã xử lý',
+      processingFiles: 'File trên edge này',
+      noErrors: 'Edge này chưa có file lỗi.',
+      noProcessedFiles: 'Edge này chưa có file nào xử lý xong.',
+      preparingFiles: 'Đang lấy danh sách file…',
     },
     runBar: {
       aria: 'File trong lần chạy hiện tại',

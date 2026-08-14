@@ -3,8 +3,7 @@ import { describe, it } from 'node:test'
 import type { FileTransferInfo } from '../api/types.ts'
 import {
   PARTICLE_CAP,
-  QUEUE_END,
-  QUEUE_START,
+  ERROR_T,
   TARGET_T,
   desiredT,
   isSuccessStatus,
@@ -57,16 +56,20 @@ describe('fileParticles', () => {
     assert.deepEqual(transfersToParticles([]), [])
   })
 
-  it('keeps non-success particles inside the queue band', () => {
-    for (const status of ['checking', 'failed']) {
+  it('maps active file progress across the full edge', () => {
+    assert.equal(desiredT({ status: 'checking', progress: 0, dir: 1, slot: 0, queued: 1 }), 0)
+    assert.equal(desiredT({ status: 'checking', progress: 50, dir: 1, slot: 0, queued: 1 }), 0.5)
+    assert.equal(desiredT({ status: 'transferring', progress: 100, dir: 1, slot: 0, queued: 1 }), 1)
+    assert.equal(desiredT({ status: 'failed', progress: 20, dir: 1, slot: 0, queued: 1 }), ERROR_T)
+    for (const status of ['pending']) {
       const t = desiredT({ status, progress: 0, dir: 1, slot: 0, queued: 1 })
-      assert.ok(t >= QUEUE_START && t <= QUEUE_END, `${status} t=${t}`)
+      assert.ok(t > 0 && t < 1, `${status} t=${t}`)
     }
     const mid = desiredT({ status: 'transferring', progress: 50, dir: 1, slot: 0, queued: 1 })
     const done = desiredT({ status: 'transferring', progress: 100, dir: 1, slot: 0, queued: 1 })
     assert.ok(mid < done)
-    assert.ok(done <= QUEUE_END)
-    assert.ok(done < TARGET_T)
+    assert.equal(mid, 0.5)
+    assert.equal(done, 1)
   })
 
   it('only success is allowed to seek the target node', () => {
@@ -76,7 +79,7 @@ describe('fileParticles', () => {
     assert.equal(isSuccessStatus('failed'), false)
     assert.equal(isSuccessStatus('transferring'), false)
     const fail = transfersToParticles([tr('x', 'failed')], 'push')[0]
-    assert.ok(fail.t <= QUEUE_END)
+    assert.equal(fail.t, ERROR_T)
     const ok = transfersToParticles([tr('y', 'completed', 100)], 'push')[0]
     assert.equal(ok.t, TARGET_T)
   })
@@ -87,7 +90,7 @@ describe('fileParticles', () => {
       'push',
     )
     const ts = dots.map((d) => d.t)
-    assert.equal(new Set(ts).size, 3)
-    assert.ok(ts.every((t) => t >= QUEUE_START && t <= QUEUE_END))
+    assert.equal(new Set(ts).size, 2)
+    assert.ok(ts.every((t) => t >= 0 && t <= 1))
   })
 })

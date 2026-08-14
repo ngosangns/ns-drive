@@ -11,7 +11,7 @@ describe('runChrome', () => {
     assert.equal(isActiveRun(undefined), false)
   })
 
-  it('shows the bottom bar only during an active run', () => {
+  it('treats only active runs as canvas run state', () => {
     assert.equal(runBarVisible('running'), true)
     assert.equal(runBarVisible('cancelling'), true)
     assert.equal(runBarVisible('failed'), false)

@@ -209,6 +209,12 @@ export default {
       duplicateEdge: 'That sync already exists.',
       selfLoop: 'Cannot connect a location to itself.',
       resizePanel: 'Resize config panel',
+      errorFiles: 'Error files',
+      processedFiles: 'Processed files',
+      processingFiles: 'Files on this edge',
+      noErrors: 'No file errors on this edge.',
+      noProcessedFiles: 'No processed files on this edge yet.',
+      preparingFiles: 'Preparing file list…',
     },
     runBar: {
       aria: 'Files in the current run',

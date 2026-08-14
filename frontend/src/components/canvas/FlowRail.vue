@@ -71,6 +71,7 @@ async function onDeleteFlow(id: string, name: string) {
         type="button"
         :class="cn(
           'mb-1 flex w-full items-start gap-1 rounded-md border px-2 py-1.5 text-left',
+          'cursor-pointer',
           canvas.activeFlowId === f.id ? 'border-accent-strong bg-accent/20' : 'border-border bg-bg',
         )"
         :data-testid="`flow-card-${f.id}`"

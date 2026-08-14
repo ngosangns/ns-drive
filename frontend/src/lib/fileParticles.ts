@@ -10,6 +10,7 @@ export const PARTICLE_CAP = 24
 export const QUEUE_START = 0.18
 export const QUEUE_END = 0.7
 export const TARGET_T = 0.98
+export const ERROR_T = 0.5
 
 export type ParticleDir = 1 | -1
 
@@ -71,19 +72,20 @@ export function desiredT(p: {
   queued: number
 }): number {
   const forward = p.dir === 1
+  if (p.status === 'failed') return ERROR_T
   if (isSuccessStatus(p.status)) {
     return forward ? TARGET_T : 1 - TARGET_T
   }
   const queued = Math.max(p.queued, 1)
   const span = QUEUE_END - QUEUE_START
   let local: number
-  if (p.status === 'transferring') {
+  if (p.status === 'transferring' || p.status === 'checking') {
     const pr = Math.max(0, Math.min(1, Number(p.progress) / 100 || 0))
-    local = QUEUE_START + pr * span
+    local = pr
   } else {
     local = QUEUE_START + ((p.slot + 0.5) / queued) * span
   }
-  if (local > QUEUE_END) local = QUEUE_END
+  if (p.status !== 'transferring' && p.status !== 'checking' && local > QUEUE_END) local = QUEUE_END
   return forward ? local : 1 - local
 }
 

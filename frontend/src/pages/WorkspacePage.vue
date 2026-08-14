@@ -5,7 +5,6 @@
 import FlowRail from '@/components/canvas/FlowRail.vue'
 import FlowCanvas from '@/components/canvas/FlowCanvas.vue'
 import CanvasInspector from '@/components/canvas/CanvasInspector.vue'
-import FlowRunBottomBar from '@/components/canvas/FlowRunBottomBar.vue'
 
 defineOptions({ name: 'WorkspacePage' })
 </script>
@@ -19,6 +18,5 @@ defineOptions({ name: 'WorkspacePage' })
       </div>
       <CanvasInspector class="max-h-[46%] md:max-h-none" />
     </div>
-    <FlowRunBottomBar />
   </div>
 </template>

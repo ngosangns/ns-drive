@@ -21,8 +21,9 @@ const path = computed(() => props.data.path || '/')
 
 <template>
   <div
-    class="min-w-[160px] max-w-[220px] rounded-md border bg-surface px-3 py-2 shadow-[var(--shadow-paper)]"
-    :class="
+    class="w-[192px] rounded-md border bg-surface px-3 py-2 shadow-[var(--shadow-paper)]"
+    :class="[
+      data.running ? 'cursor-not-allowed' : 'cursor-move',
       selected
         ? 'border-accent-strong'
         : data.failed
@@ -30,13 +31,13 @@ const path = computed(() => props.data.path || '/')
           : data.running
             ? 'border-accent-strong'
             : 'border-border'
-    "
+    ]"
     :data-testid="`canvas-node-${id}`"
   >
     <Handle
       type="target"
       :position="Position.Left"
-      class="!h-2.5 !w-2.5 !border !border-border !bg-bg"
+      class="!h-2.5 !w-2.5 !cursor-crosshair !border !border-border !bg-bg"
     />
     <div class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
       <PhHardDrives v-if="data.remote" :size="12" weight="bold" />
@@ -47,7 +48,7 @@ const path = computed(() => props.data.path || '/')
     <Handle
       type="source"
       :position="Position.Right"
-      class="!h-2.5 !w-2.5 !border !border-border !bg-bg"
+      class="!h-2.5 !w-2.5 !cursor-crosshair !border !border-border !bg-bg"
     />
   </div>
 </template>

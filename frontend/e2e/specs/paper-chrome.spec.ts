@@ -92,13 +92,20 @@ describe('solarized paper chrome', () => {
     }
   })
 
-  it('shows a run-only file bar and locks inspector fields while running', () => {
+  it('shows edge run affordances and locks inspector fields while running', () => {
     const page = readSrc('pages', 'WorkspacePage.vue')
-    const bar = readSrc('components', 'canvas', 'FlowRunBottomBar.vue')
+    const edge = readSrc('components', 'canvas', 'SyncEdge.vue')
     const inspector = readSrc('components', 'canvas', 'CanvasInspector.vue')
-    assert.match(page, /FlowRunBottomBar/)
-    assert.match(bar, /data-testid="flow-run-bar"/)
-    assert.match(bar, /v-if="visible && activeFlow"/)
+    assert.doesNotMatch(page, /FlowRunBottomBar/)
+    assert.match(edge, /data-testid="`canvas-edge-errors-\$\{id\}`"/)
+    assert.match(edge, /data-testid="`canvas-edge-processed-\$\{id\}`"/)
+    assert.match(edge, /<marker/)
+    assert.match(edge, /marker-end="`url\(#\$\{markerId\}\)`"/)
+    assert.match(edge, /marker-start="isBidirectional \? `url\(#\$\{markerId\}\)` : undefined"/)
+    assert.match(edge, /left: `\$\{sourceX\}px`, top: `\$\{sourceY \+ 28\}px`/)
+    assert.match(edge, /left: `\$\{targetX\}px`, top: `\$\{targetY \+ 28\}px`/)
+    assert.match(edge, /data-testid="`canvas-edge-files-\$\{id\}`"/)
+    assert.match(edge, /class="max-h-52 overflow-auto p-1" @wheel\.stop/)
     assert.match(inspector, /:disabled="running"/)
     assert.match(inspector, /:disabled="!dirty \|\| running"/)
   })
