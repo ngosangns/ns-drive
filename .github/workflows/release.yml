@@ -87,11 +87,11 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           else
-            echo "VERSION=dev" >> $GITHUB_ENV
+            echo "VERSION=dev" >> "$GITHUB_ENV"
           fi
-          echo "COMMIT=${GITHUB_SHA::8}" >> $GITHUB_ENV
+          echo "COMMIT=${GITHUB_SHA::8}" >> "$GITHUB_ENV"
 
       - name: Build binary
         shell: bash
@@ -113,7 +113,7 @@ jobs:
         shell: bash
         run: |
           cd bin
-          tar czf "../../${{ matrix.artifact }}.tar.gz" "${{ matrix.goos == 'windows' && env.APP_NAME + '.exe' || env.APP_NAME }}"
+          tar czf "../../${{ matrix.artifact }}.tar.gz" "${APP_NAME}"
           cd ../..
           sha256sum "${{ matrix.artifact }}.tar.gz" > "${{ matrix.artifact }}.tar.gz.sha256"
 
