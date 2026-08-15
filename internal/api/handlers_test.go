@@ -348,6 +348,33 @@ func TestHandleChangePassword_WrongOld(t *testing.T) {
 	}
 }
 
+func TestHandleRemovePassword_Success(t *testing.T) {
+	srv, cleanup := newTestServer(t)
+	defer cleanup()
+	_ = doRequest(srv, "POST", "/api/v1/auth/setup", map[string]string{"password": "old-pw-1234"}, "")
+	rr := doRequest(srv, "POST", "/api/v1/auth/remove-password", map[string]string{
+		"password": "old-pw-1234",
+	}, "")
+	if rr.Code != 200 {
+		t.Errorf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	if !srv.app.Auth.IsUnlocked() {
+		t.Fatal("remove-password must keep the app unlocked")
+	}
+}
+
+func TestHandleRemovePassword_WrongPassword(t *testing.T) {
+	srv, cleanup := newTestServer(t)
+	defer cleanup()
+	_ = doRequest(srv, "POST", "/api/v1/auth/setup", map[string]string{"password": "old-pw-1234"}, "")
+	rr := doRequest(srv, "POST", "/api/v1/auth/remove-password", map[string]string{
+		"password": "wrong-pw-old",
+	}, "")
+	if rr.Code != 403 {
+		t.Errorf("status = %d, want 403", rr.Code)
+	}
+}
+
 // --- Profile handlers ---------------------------------------------------
 
 func TestProfileHandlers_CRUD(t *testing.T) {

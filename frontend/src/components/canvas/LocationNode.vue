@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
-import { PhHardDrives, PhFolder } from '@phosphor-icons/vue'
+import { PhHardDrives, PhFolder, PhTrash } from '@phosphor-icons/vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   id: string
@@ -12,6 +15,7 @@ const props = defineProps<{
     label: string
     running?: boolean
     failed?: boolean
+    onDelete?: () => void
   }
 }>()
 
@@ -21,7 +25,7 @@ const path = computed(() => props.data.path || '/')
 
 <template>
   <div
-    class="w-[192px] rounded-md border bg-surface px-3 py-2 shadow-[var(--shadow-paper)]"
+    class="relative w-[192px] rounded-md border bg-surface px-3 py-2 shadow-[var(--shadow-paper)]"
     :class="[
       'cursor-move',
       selected
@@ -34,6 +38,21 @@ const path = computed(() => props.data.path || '/')
     ]"
     :data-testid="`canvas-node-${id}`"
   >
+    <div
+      v-if="selected"
+      class="absolute -top-11 right-0 z-10 rounded-md border border-border bg-surface shadow-[var(--shadow-paper)]"
+    >
+      <button
+        type="button"
+        class="btn-icon !h-6 !w-6 !p-0"
+        :title="t('workspace.canvas.deleteNode')"
+        :aria-label="t('workspace.canvas.deleteNode')"
+        @pointerdown.stop
+        @click.stop="data.onDelete?.()"
+      >
+        <PhTrash :size="12" weight="bold" />
+      </button>
+    </div>
     <Handle
       type="target"
       :position="Position.Left"

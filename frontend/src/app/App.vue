@@ -15,8 +15,9 @@ const showLayout = computed(() => auth.unlocked && route.name !== 'unlock')
 
 /** State socket lives at app shell so runtime updates survive Workspace navigation. */
 const stateSocketEnabled = computed(() => auth.unlocked)
-const { connected: eventsConnected } = useEventStream({ enabled: stateSocketEnabled })
+const { connected: eventsConnected, state: eventsState } = useEventStream({ enabled: stateSocketEnabled })
 provide('eventsConnected', eventsConnected)
+provide('eventsState', eventsState)
 </script>
 
 <template>

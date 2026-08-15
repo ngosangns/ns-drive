@@ -191,7 +191,7 @@ async function addFlow() {
   }
   const f = emptyFlow()
   f.name = t('workspace.untitledFlow')
-  f.operations = [emptyOperation()]
+  f.operations = []
   try {
     await flows.save(f)
     clearFlowDirty(f.id)

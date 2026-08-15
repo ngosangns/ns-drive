@@ -28,7 +28,7 @@ function remToPx(value: string): number {
   return Number(px[1])
 }
 
-describe('solarized paper chrome', () => {
+describe('paper chrome', () => {
   const css = readSrc('styles', 'main.css')
   const topbar = readSrc('components', 'layout', 'Topbar.vue')
   const rail = readSrc('components', 'canvas', 'FlowRail.vue')
@@ -36,11 +36,11 @@ describe('solarized paper chrome', () => {
   const pathField = readSrc('components', 'forms', 'RemotePathField.vue')
   const settings = readSrc('components', 'flows', 'OperationSettingsPanel.vue')
 
-  it('keeps Solarized paper/base hues and 6–8px radius without offset-neo shadows', () => {
+  it('keeps paper backgrounds and 6–8px radius without offset-neo shadows', () => {
     assert.equal(cssVar(css, 'color-bg'), '#fdf6e3')
     assert.equal(cssVar(css, 'color-bg-secondary'), '#eee8d5')
-    assert.equal(cssVar(css, 'color-bg', 'html.dark'), '#002b36')
-    assert.equal(cssVar(css, 'color-bg-secondary', 'html.dark'), '#073642')
+    assert.equal(cssVar(css, 'color-bg', 'html.dark'), '#0b0f13')
+    assert.equal(cssVar(css, 'color-bg-secondary', 'html.dark'), '#11161c')
 
     const radius = remToPx(cssVar(css, 'radius-md'))
     assert.ok(radius >= 6 && radius <= 8, `radius-md ${radius}px not in 6–8`)
@@ -73,7 +73,7 @@ describe('solarized paper chrome', () => {
     assert.match(inspector, /op-dst-\$\{selectedEdge\.id\}/)
   })
 
-  it('collapses operation settings groups', () => {
+  it('renders operation settings groups as sections', () => {
     assert.match(settings, /data-testid="op-settings-panel"/)
     const groups = [
       'workspace.opSettings.performance',
@@ -87,8 +87,8 @@ describe('solarized paper chrome', () => {
       const idx = settings.indexOf(key)
       assert.ok(idx > 0, `missing settings group ${key}`)
       const before = settings.slice(Math.max(0, idx - 400), idx)
-      assert.match(before, /<details/, `${key} should live in a <details>`)
-      assert.doesNotMatch(before, /<details[^>]*\sopen[\s>]/, `${key} must start collapsed`)
+      assert.match(before, /<section/, `${key} should live in a <section>`)
+      assert.doesNotMatch(before, /<details/, `${key} must not be collapsible`)
     }
   })
 
@@ -102,10 +102,10 @@ describe('solarized paper chrome', () => {
     assert.match(edge, /<marker/)
     assert.match(edge, /marker-end="`url\(#\$\{markerId\}\)`"/)
     assert.match(edge, /marker-start="isBidirectional \? `url\(#\$\{markerId\}\)` : undefined"/)
-    assert.match(edge, /left: `\$\{sourceX\}px`, top: `\$\{sourceY \+ 28\}px`/)
-    assert.match(edge, /left: `\$\{targetX\}px`, top: `\$\{targetY \+ 28\}px`/)
+    assert.match(edge, /left: `\$\{sourceTriggerX\}px`, top: `\$\{sourceY \+ statusTriggerOffsetY\}px`/)
+    assert.match(edge, /left: `\$\{targetTriggerX\}px`, top: `\$\{targetY \+ statusTriggerOffsetY\}px`/)
     assert.match(edge, /data-testid="`canvas-edge-files-\$\{id\}`"/)
-    assert.match(edge, /class="max-h-52 overflow-auto p-1" @wheel\.stop/)
+    assert.match(edge, /class="flex max-h-52 flex-col gap-1 overflow-auto p-1\.5" @wheel\.stop/)
     assert.match(inspector, /:disabled="running"/)
     assert.match(inspector, /:disabled="!dirty \|\| running"/)
   })
@@ -136,8 +136,6 @@ describe('solarized paper chrome', () => {
       'nav-settings',
       'page-settings',
       'nav-workspace',
-      'theme-light',
-      'theme-dark',
       'settings-old-password',
       'settings-new-password',
       'settings-change-password',

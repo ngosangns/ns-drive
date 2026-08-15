@@ -6,7 +6,7 @@
  */
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhPlus, PhX, PhCaretDown } from '@phosphor-icons/vue'
+import { PhPlus, PhX } from '@phosphor-icons/vue'
 import { FLOW_ACTIONS, type FlowAction } from '@/constants/forms'
 import {
   type SyncConfig,
@@ -14,6 +14,8 @@ import {
   serializeSyncConfig,
 } from '@/lib/syncConfig'
 import AppCheckbox from '@/components/ui/Checkbox.vue'
+import CustomField from '@/components/forms/CustomField.vue'
+import FieldUnit from '@/components/forms/FieldUnit.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -90,6 +92,21 @@ const isBi = computed(
   () => cfg.value.action === 'bi' || cfg.value.action === 'bi-resync',
 )
 const isPush = computed(() => cfg.value.action === 'push')
+
+const actionOptions = computed(() =>
+  FLOW_ACTIONS.map((a) => ({ value: a, label: t(`workspace.actionOptions.${a}`) })),
+)
+const conflictOptionList = computed(() => [
+  { value: '', label: t('common.select') },
+  ...conflictOptions.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+])
+const conflictLoserOptionList = computed(() => [
+  { value: '', label: t('common.select') },
+  ...conflictLoserOptions.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+])
+const deleteTimingOptionList = computed(() =>
+  deleteTimingOptions.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+)
 
 function splitSizeAge(val: string | undefined): { n: string; u: string } {
   if (!val) return { n: '', u: 'M' }
@@ -190,28 +207,22 @@ function removeExclude(i: number) {
 <template>
   <div
     class="space-y-3 border-t border-border bg-bg p-3"
-    :class="disabled && 'pointer-events-none opacity-50'"
+    :class="disabled && 'pointer-events-none'"
+    :aria-disabled="disabled"
     data-testid="op-settings-panel"
   >
     <!-- Action + Dry run -->
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end">
-      <label class="field-label !mb-0">
-        <span>{{ t('workspace.action') }}</span>
-        <select
-          class="field-input"
-          :value="cfg.action"
-          :disabled="disabled"
-          data-testid="op-settings-action"
-          @change="setAction(($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="a in FLOW_ACTIONS" :key="a" :value="a">
-            {{ t(`workspace.actionOptions.${a}`) }}
-          </option>
-        </select>
-        <p class="m-0 mt-1 text-[11px] leading-relaxed text-text-muted">
-          {{ t(`workspace.actionHelp.${cfg.action}`) }}
-        </p>
-      </label>
+      <CustomField
+        kind="select"
+        :model-value="cfg.action"
+        :label="t('workspace.action')"
+        :options="actionOptions"
+        :disabled="disabled"
+        :help="t(`workspace.actionHelp.${cfg.action}`)"
+        test-id="op-settings-action"
+        @change="setAction($event)"
+      />
       <div class="flex items-end pb-1">
         <AppCheckbox
           :model-value="!!cfg.dryRun"
@@ -223,149 +234,109 @@ function removeExclude(i: number) {
       </div>
     </div>
 
-    <!-- Performance — collapsed until opened -->
-    <details class="group rounded-md border border-border">
-      <summary
-        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-info,#268bd2)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
+    <!-- Performance -->
+    <section class="rounded-md border border-border">
+      <header
+        class="flex items-center gap-2 border-b border-border border-l-4 border-l-[var(--color-info,#5ca8e8)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
       >
         {{ t('workspace.opSettings.performance') }}
-        <PhCaretDown :size="12" class="ml-auto transition-transform group-open:rotate-180" />
-      </summary>
-      <div class="space-y-3 border-t border-border p-3">
+      </header>
+      <div class="space-y-3 p-3">
         <div class="grid grid-cols-2 gap-2">
-          <label class="field-label !mb-0">
-            <span>{{ t('workspace.opSettings.parallel') }}</span>
-            <input
-              class="field-input"
-              type="number"
-              min="0"
-              placeholder="8"
-              :value="cfg.parallel ?? ''"
-              :disabled="disabled"
-              @change="patchNum('parallel', ($event.target as HTMLInputElement).value)"
-            />
-          </label>
-          <label class="field-label !mb-0">
-            <span>{{ t('workspace.opSettings.bandwidth') }}</span>
-            <input
-              class="field-input"
-              type="number"
-              min="0"
-              placeholder="0"
-              :value="cfg.bandwidth ?? ''"
-              :disabled="disabled"
-              @change="patchNum('bandwidth', ($event.target as HTMLInputElement).value)"
-            />
-          </label>
+          <CustomField
+            :model-value="cfg.parallel ?? ''"
+            :label="t('workspace.opSettings.parallel')"
+            type="number"
+            :min="0"
+            placeholder="8"
+            :disabled="disabled"
+            @change="patchNum('parallel', $event)"
+          />
+          <CustomField
+            :model-value="cfg.bandwidth ?? ''"
+            :label="t('workspace.opSettings.bandwidth')"
+            type="number"
+            :min="0"
+            placeholder="0"
+            :disabled="disabled"
+            @change="patchNum('bandwidth', $event)"
+          />
         </div>
-        <details class="group">
-          <summary
-            class="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-text-muted hover:text-text"
-          >
-            <PhCaretDown :size="12" class="transition-transform group-open:rotate-180" />
+        <div class="border-t border-border pt-3">
+          <div class="mb-2 text-xs font-bold uppercase tracking-wide text-text-muted">
             {{ t('workspace.opSettings.advanced') }}
-          </summary>
-          <div class="mt-3 grid grid-cols-2 gap-2">
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.multiThread') }}</span>
-              <input
-                class="field-input"
-                type="number"
-                :value="cfg.multiThreadStreams ?? ''"
-                :disabled="disabled"
-                @change="patchNum('multiThreadStreams', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.bufferSize') }}</span>
-              <input
-                class="field-input"
-                placeholder="16M"
-                :value="cfg.bufferSize ?? ''"
-                :disabled="disabled"
-                @change="patchStr('bufferSize', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.retries') }}</span>
-              <input
-                class="field-input"
-                type="number"
-                :value="cfg.retries ?? ''"
-                :disabled="disabled"
-                @change="patchNum('retries', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.lowLevelRetries') }}</span>
-              <input
-                class="field-input"
-                type="number"
-                :value="cfg.lowLevelRetries ?? ''"
-                :disabled="disabled"
-                @change="patchNum('lowLevelRetries', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.maxDuration') }}</span>
-              <input
-                class="field-input"
-                placeholder="1h30m"
-                :value="cfg.maxDuration ?? ''"
-                :disabled="disabled"
-                @change="patchStr('maxDuration', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.retriesSleep') }}</span>
-              <input
-                class="field-input"
-                placeholder="10s"
-                :value="cfg.retriesSleep ?? ''"
-                :disabled="disabled"
-                @change="patchStr('retriesSleep', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.tpsLimit') }}</span>
-              <input
-                class="field-input"
-                type="number"
-                :value="cfg.tpsLimit ?? ''"
-                :disabled="disabled"
-                @change="patchNum('tpsLimit', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.connTimeout') }}</span>
-              <input
-                class="field-input"
-                placeholder="30s"
-                :value="cfg.connTimeout ?? ''"
-                :disabled="disabled"
-                @change="patchStr('connTimeout', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.ioTimeout') }}</span>
-              <input
-                class="field-input"
-                placeholder="5m"
-                :value="cfg.ioTimeout ?? ''"
-                :disabled="disabled"
-                @change="patchStr('ioTimeout', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.orderBy') }}</span>
-              <input
-                class="field-input"
-                placeholder="size,desc"
-                :value="cfg.orderBy ?? ''"
-                :disabled="disabled"
-                @change="patchStr('orderBy', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <CustomField
+              :model-value="cfg.multiThreadStreams ?? ''"
+              :label="t('workspace.opSettings.multiThread')"
+              type="number"
+              :disabled="disabled"
+              @change="patchNum('multiThreadStreams', $event)"
+            />
+            <CustomField
+              :model-value="cfg.bufferSize ?? ''"
+              :label="t('workspace.opSettings.bufferSize')"
+              placeholder="16M"
+              :disabled="disabled"
+              @change="patchStr('bufferSize', $event)"
+            />
+            <CustomField
+              :model-value="cfg.retries ?? ''"
+              :label="t('workspace.opSettings.retries')"
+              type="number"
+              :disabled="disabled"
+              @change="patchNum('retries', $event)"
+            />
+            <CustomField
+              :model-value="cfg.lowLevelRetries ?? ''"
+              :label="t('workspace.opSettings.lowLevelRetries')"
+              type="number"
+              :disabled="disabled"
+              @change="patchNum('lowLevelRetries', $event)"
+            />
+            <CustomField
+              :model-value="cfg.maxDuration ?? ''"
+              :label="t('workspace.opSettings.maxDuration')"
+              placeholder="1h30m"
+              :disabled="disabled"
+              @change="patchStr('maxDuration', $event)"
+            />
+            <CustomField
+              :model-value="cfg.retriesSleep ?? ''"
+              :label="t('workspace.opSettings.retriesSleep')"
+              placeholder="10s"
+              :disabled="disabled"
+              @change="patchStr('retriesSleep', $event)"
+            />
+            <CustomField
+              :model-value="cfg.tpsLimit ?? ''"
+              :label="t('workspace.opSettings.tpsLimit')"
+              type="number"
+              :disabled="disabled"
+              @change="patchNum('tpsLimit', $event)"
+            />
+            <CustomField
+              :model-value="cfg.connTimeout ?? ''"
+              :label="t('workspace.opSettings.connTimeout')"
+              placeholder="30s"
+              :disabled="disabled"
+              @change="patchStr('connTimeout', $event)"
+            />
+            <CustomField
+              :model-value="cfg.ioTimeout ?? ''"
+              :label="t('workspace.opSettings.ioTimeout')"
+              placeholder="5m"
+              :disabled="disabled"
+              @change="patchStr('ioTimeout', $event)"
+            />
+            <CustomField
+              :model-value="cfg.orderBy ?? ''"
+              :label="t('workspace.opSettings.orderBy')"
+              placeholder="size,desc"
+              :disabled="disabled"
+              @change="patchStr('orderBy', $event)"
+            />
           </div>
           <div class="mt-2">
             <AppCheckbox
@@ -375,19 +346,18 @@ function removeExclude(i: number) {
               @update:model-value="patchBool('checkFirst', !!$event)"
             />
           </div>
-        </details>
+        </div>
       </div>
-    </details>
+    </section>
 
-    <!-- Filtering — collapsed until opened -->
-    <details class="group rounded-md border border-border">
-      <summary
-        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-accent-strong,#6c71c4)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
+    <!-- Filtering -->
+    <section class="rounded-md border border-border">
+      <header
+        class="flex items-center gap-2 border-b border-border border-l-4 border-l-[var(--color-accent-strong,#6ee7df)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
       >
         {{ t('workspace.opSettings.filtering') }}
-        <PhCaretDown :size="12" class="ml-auto transition-transform group-open:rotate-180" />
-      </summary>
-      <div class="space-y-3 border-t border-border p-3">
+      </header>
+      <div class="space-y-3 p-3">
         <div>
           <div class="mb-1 text-xs font-bold text-text-muted">{{ t('workspace.opSettings.includePaths') }}</div>
           <div
@@ -395,18 +365,25 @@ function removeExclude(i: number) {
             :key="`inc-${i}`"
             class="mb-1 flex items-center gap-2"
           >
-            <input
-              v-model="includeDrafts[i]"
-              class="field-input font-mono text-sm"
+            <CustomField
+              class="min-w-0 flex-1"
+              :model-value="includeDrafts[i]"
               placeholder="/path or *.ext"
+              mono
               :disabled="disabled"
+              @input="includeDrafts[i] = $event"
               @change="emitConfig"
             />
             <button type="button" class="btn-ghost !px-1" :disabled="disabled" @click="removeInclude(i)">
               <PhX :size="12" class="text-danger" />
             </button>
           </div>
-          <button type="button" class="text-xs text-text-muted hover:text-text" :disabled="disabled" @click="addInclude">
+          <button
+            type="button"
+            class="text-xs text-text-muted hover:text-text disabled:cursor-not-allowed disabled:text-text-dim disabled:opacity-60"
+            :disabled="disabled"
+            @click="addInclude"
+          >
             <PhPlus :size="12" class="mr-0.5 inline" /> {{ t('workspace.opSettings.addPath') }}
           </button>
         </div>
@@ -417,113 +394,87 @@ function removeExclude(i: number) {
             :key="`exc-${i}`"
             class="mb-1 flex items-center gap-2"
           >
-            <input
-              v-model="excludeDrafts[i]"
-              class="field-input font-mono text-sm"
+            <CustomField
+              class="min-w-0 flex-1"
+              :model-value="excludeDrafts[i]"
               placeholder="*.tmp or node_modules/"
+              mono
               :disabled="disabled"
+              @input="excludeDrafts[i] = $event"
               @change="emitConfig"
             />
             <button type="button" class="btn-ghost !px-1" :disabled="disabled" @click="removeExclude(i)">
               <PhX :size="12" class="text-danger" />
             </button>
           </div>
-          <button type="button" class="text-xs text-text-muted hover:text-text" :disabled="disabled" @click="addExclude">
+          <button
+            type="button"
+            class="text-xs text-text-muted hover:text-text disabled:cursor-not-allowed disabled:text-text-dim disabled:opacity-60"
+            :disabled="disabled"
+            @click="addExclude"
+          >
             <PhPlus :size="12" class="mr-0.5 inline" /> {{ t('workspace.opSettings.addPath') }}
           </button>
         </div>
-        <details class="group">
-          <summary
-            class="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-text-muted hover:text-text"
-          >
-            <PhCaretDown :size="12" class="transition-transform group-open:rotate-180" />
+        <div class="border-t border-border pt-3">
+          <div class="mb-2 text-xs font-bold uppercase tracking-wide text-text-muted">
             {{ t('workspace.opSettings.advanced') }}
-          </summary>
-          <div class="mt-3 grid grid-cols-2 gap-2">
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.minSize') }}</span>
-              <div class="flex gap-1">
-                <input
-                  v-model="minSizeNum"
-                  class="field-input min-w-0 flex-1"
-                  type="number"
-                  min="0"
-                  :disabled="disabled"
-                  @change="emitConfig"
-                />
-                <select v-model="minSizeUnit" class="field-input !w-16 shrink-0" :disabled="disabled" @change="emitConfig">
-                  <option v-for="u in sizeUnits" :key="u.value" :value="u.value">{{ u.label }}</option>
-                </select>
-              </div>
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.maxSize') }}</span>
-              <div class="flex gap-1">
-                <input
-                  v-model="maxSizeNum"
-                  class="field-input min-w-0 flex-1"
-                  type="number"
-                  min="0"
-                  :disabled="disabled"
-                  @change="emitConfig"
-                />
-                <select v-model="maxSizeUnit" class="field-input !w-16 shrink-0" :disabled="disabled" @change="emitConfig">
-                  <option v-for="u in sizeUnits" :key="u.value" :value="u.value">{{ u.label }}</option>
-                </select>
-              </div>
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.maxAge') }}</span>
-              <div class="flex gap-1">
-                <input
-                  v-model="maxAgeNum"
-                  class="field-input min-w-0 flex-1"
-                  type="number"
-                  min="0"
-                  :disabled="disabled"
-                  @change="emitConfig"
-                />
-                <select v-model="maxAgeUnit" class="field-input !w-16 shrink-0" :disabled="disabled" @change="emitConfig">
-                  <option v-for="u in ageUnits" :key="u.value" :value="u.value">{{ u.label }}</option>
-                </select>
-              </div>
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.minAge') }}</span>
-              <div class="flex gap-1">
-                <input
-                  v-model="minAgeNum"
-                  class="field-input min-w-0 flex-1"
-                  type="number"
-                  min="0"
-                  :disabled="disabled"
-                  @change="emitConfig"
-                />
-                <select v-model="minAgeUnit" class="field-input !w-16 shrink-0" :disabled="disabled" @change="emitConfig">
-                  <option v-for="u in ageUnits" :key="u.value" :value="u.value">{{ u.label }}</option>
-                </select>
-              </div>
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.maxDepth') }}</span>
-              <input
-                class="field-input"
-                type="number"
-                :value="cfg.maxDepth ?? ''"
-                :disabled="disabled"
-                @change="patchNum('maxDepth', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.excludeIfPresent') }}</span>
-              <input
-                class="field-input"
-                placeholder=".nosync"
-                :value="cfg.excludeIfPresent ?? ''"
-                :disabled="disabled"
-                @change="patchStr('excludeIfPresent', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <FieldUnit
+              :label="t('workspace.opSettings.minSize')"
+              :model-value="minSizeNum"
+              :unit-value="minSizeUnit"
+              :units="sizeUnits"
+              :disabled="disabled"
+              @input="minSizeNum = $event"
+              @change="emitConfig"
+              @change-unit="minSizeUnit = $event; emitConfig()"
+            />
+            <FieldUnit
+              :label="t('workspace.opSettings.maxSize')"
+              :model-value="maxSizeNum"
+              :unit-value="maxSizeUnit"
+              :units="sizeUnits"
+              :disabled="disabled"
+              @input="maxSizeNum = $event"
+              @change="emitConfig"
+              @change-unit="maxSizeUnit = $event; emitConfig()"
+            />
+            <FieldUnit
+              :label="t('workspace.opSettings.maxAge')"
+              :model-value="maxAgeNum"
+              :unit-value="maxAgeUnit"
+              :units="ageUnits"
+              :disabled="disabled"
+              @input="maxAgeNum = $event"
+              @change="emitConfig"
+              @change-unit="maxAgeUnit = $event; emitConfig()"
+            />
+            <FieldUnit
+              :label="t('workspace.opSettings.minAge')"
+              :model-value="minAgeNum"
+              :unit-value="minAgeUnit"
+              :units="ageUnits"
+              :disabled="disabled"
+              @input="minAgeNum = $event"
+              @change="emitConfig"
+              @change-unit="minAgeUnit = $event; emitConfig()"
+            />
+            <CustomField
+              :model-value="cfg.maxDepth ?? ''"
+              :label="t('workspace.opSettings.maxDepth')"
+              type="number"
+              :disabled="disabled"
+              @change="patchNum('maxDepth', $event)"
+            />
+            <CustomField
+              :model-value="cfg.excludeIfPresent ?? ''"
+              :label="t('workspace.opSettings.excludeIfPresent')"
+              placeholder=".nosync"
+              :disabled="disabled"
+              @change="patchStr('excludeIfPresent', $event)"
+            />
           </div>
           <div class="mt-2 flex flex-wrap gap-4">
             <AppCheckbox
@@ -539,70 +490,55 @@ function removeExclude(i: number) {
               @update:model-value="patchBool('deleteExcluded', !!$event)"
             />
           </div>
-        </details>
+        </div>
       </div>
-    </details>
+    </section>
 
     <!-- Safety -->
-    <details class="group rounded-md border border-border">
-      <summary
-        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-warning,#b58900)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
+    <section class="rounded-md border border-border">
+      <header
+        class="flex items-center gap-2 border-b border-border border-l-4 border-l-[var(--color-warning,#e7b866)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
       >
         {{ t('workspace.opSettings.safety') }}
-        <PhCaretDown :size="12" class="ml-auto transition-transform group-open:rotate-180" />
-      </summary>
-      <div class="space-y-3 border-t border-border p-3">
+      </header>
+      <div class="space-y-3 p-3">
         <div class="grid grid-cols-2 gap-2">
-          <label class="field-label !mb-0">
-            <span>{{ t('workspace.opSettings.maxDelete') }}</span>
-            <input
-              class="field-input"
-              type="number"
-              placeholder="100"
-              :value="cfg.maxDelete ?? ''"
-              :disabled="disabled"
-              @change="patchNum('maxDelete', ($event.target as HTMLInputElement).value)"
-            />
-          </label>
-          <label class="field-label !mb-0">
-            <span>{{ t('workspace.opSettings.maxTransfer') }}</span>
-            <input
-              class="field-input"
-              placeholder="10G"
-              :value="cfg.maxTransfer ?? ''"
-              :disabled="disabled"
-              @change="patchStr('maxTransfer', ($event.target as HTMLInputElement).value)"
-            />
-          </label>
-          <label class="field-label !mb-0">
-            <span>{{ t('workspace.opSettings.maxDeleteSize') }}</span>
-            <input
-              class="field-input"
-              placeholder="1G"
-              :value="cfg.maxDeleteSize ?? ''"
-              :disabled="disabled"
-              @change="patchStr('maxDeleteSize', ($event.target as HTMLInputElement).value)"
-            />
-          </label>
-          <label class="field-label !mb-0">
-            <span>{{ t('workspace.opSettings.suffix') }}</span>
-            <input
-              class="field-input"
-              placeholder=".bak"
-              :value="cfg.suffix ?? ''"
-              :disabled="disabled"
-              @change="patchStr('suffix', ($event.target as HTMLInputElement).value)"
-            />
-          </label>
-          <label class="field-label !mb-0 sm:col-span-2">
-            <span>{{ t('workspace.opSettings.backupPath') }}</span>
-            <input
-              class="field-input"
-              :value="cfg.backupPath ?? ''"
-              :disabled="disabled"
-              @change="patchStr('backupPath', ($event.target as HTMLInputElement).value)"
-            />
-          </label>
+          <CustomField
+            :model-value="cfg.maxDelete ?? ''"
+            :label="t('workspace.opSettings.maxDelete')"
+            type="number"
+            placeholder="100"
+            :disabled="disabled"
+            @change="patchNum('maxDelete', $event)"
+          />
+          <CustomField
+            :model-value="cfg.maxTransfer ?? ''"
+            :label="t('workspace.opSettings.maxTransfer')"
+            placeholder="10G"
+            :disabled="disabled"
+            @change="patchStr('maxTransfer', $event)"
+          />
+          <CustomField
+            :model-value="cfg.maxDeleteSize ?? ''"
+            :label="t('workspace.opSettings.maxDeleteSize')"
+            placeholder="1G"
+            :disabled="disabled"
+            @change="patchStr('maxDeleteSize', $event)"
+          />
+          <CustomField
+            :model-value="cfg.suffix ?? ''"
+            :label="t('workspace.opSettings.suffix')"
+            placeholder=".bak"
+            :disabled="disabled"
+            @change="patchStr('suffix', $event)"
+          />
+          <CustomField
+            class="sm:col-span-2"
+            :model-value="cfg.backupPath ?? ''"
+            :label="t('workspace.opSettings.backupPath')"
+            :disabled="disabled"
+            @change="patchStr('backupPath', $event)"
+          />
         </div>
         <div class="flex flex-wrap gap-4">
           <AppCheckbox
@@ -619,17 +555,16 @@ function removeExclude(i: number) {
           />
         </div>
       </div>
-    </details>
+    </section>
 
     <!-- Comparison -->
-    <details class="group rounded-md border border-border">
-      <summary
-        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-success,#859900)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
+    <section class="rounded-md border border-border">
+      <header
+        class="flex items-center gap-2 border-b border-border border-l-4 border-l-[var(--color-success,#5cc786)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
       >
         {{ t('workspace.opSettings.comparison') }}
-        <PhCaretDown :size="12" class="ml-auto transition-transform group-open:rotate-180" />
-      </summary>
-      <div class="flex flex-wrap gap-4 border-t border-border p-3">
+      </header>
+      <div class="flex flex-wrap gap-4 p-3">
         <AppCheckbox
           :model-value="!!cfg.sizeOnly"
           :disabled="disabled"
@@ -649,97 +584,69 @@ function removeExclude(i: number) {
           @update:model-value="patchBool('ignoreExisting', !!$event)"
         />
       </div>
-    </details>
+    </section>
 
-    <!-- Sync options (push) — collapsed until opened -->
-    <details v-if="isPush" class="group rounded-md border border-border">
-      <summary
-        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-info,#2aa198)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
+    <!-- Sync options (push) -->
+    <section v-if="isPush" class="rounded-md border border-border">
+      <header
+        class="flex items-center gap-2 border-b border-border border-l-4 border-l-[var(--color-info,#5ca8e8)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
       >
         {{ t('workspace.opSettings.syncOptions') }}
-        <PhCaretDown :size="12" class="ml-auto transition-transform group-open:rotate-180" />
-      </summary>
-      <div class="border-t border-border p-3">
-        <label class="field-label !mb-0">
-          <span>{{ t('workspace.opSettings.deleteTiming') }}</span>
-          <select
-            class="field-input"
-            :value="cfg.deleteTiming ?? ''"
-            :disabled="disabled"
-            @change="patchStr('deleteTiming', ($event.target as HTMLSelectElement).value)"
-          >
-            <option v-for="o in deleteTimingOptions" :key="o.value || 'def'" :value="o.value">
-              {{ t(o.labelKey) }}
-            </option>
-          </select>
-        </label>
+      </header>
+      <div class="p-3">
+        <CustomField
+          kind="select"
+          :model-value="cfg.deleteTiming ?? ''"
+          :label="t('workspace.opSettings.deleteTiming')"
+          :options="deleteTimingOptionList"
+          :disabled="disabled"
+          @change="patchStr('deleteTiming', $event)"
+        />
       </div>
-    </details>
+    </section>
 
-    <!-- Bisync options — collapsed until opened -->
-    <details v-if="isBi" class="group rounded-md border border-border">
-      <summary
-        class="flex cursor-pointer list-none items-center gap-2 border-l-4 border-l-[var(--color-danger,#d33682)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
+    <!-- Bisync options -->
+    <section v-if="isBi" class="rounded-md border border-border">
+      <header
+        class="flex items-center gap-2 border-b border-border border-l-4 border-l-[var(--color-danger,#eb6b6f)] bg-bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide"
       >
         {{ t('workspace.opSettings.bisyncOptions') }}
-        <PhCaretDown :size="12" class="ml-auto transition-transform group-open:rotate-180" />
-      </summary>
-      <div class="space-y-3 border-t border-border p-3">
-        <label class="field-label !mb-0">
-          <span>{{ t('workspace.opSettings.conflictResolution') }}</span>
-          <select
-            class="field-input"
-            :value="cfg.conflictResolution ?? ''"
-            :disabled="disabled"
-            @change="patchStr('conflictResolution', ($event.target as HTMLSelectElement).value)"
-          >
-            <option value="">{{ t('common.select') }}</option>
-            <option v-for="o in conflictOptions" :key="o.value" :value="o.value">
-              {{ t(o.labelKey) }}
-            </option>
-          </select>
-        </label>
-        <details class="group">
-          <summary
-            class="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-text-muted hover:text-text"
-          >
-            <PhCaretDown :size="12" class="transition-transform group-open:rotate-180" />
+      </header>
+      <div class="space-y-3 p-3">
+        <CustomField
+          kind="select"
+          :model-value="cfg.conflictResolution ?? ''"
+          :label="t('workspace.opSettings.conflictResolution')"
+          :options="conflictOptionList"
+          :disabled="disabled"
+          @change="patchStr('conflictResolution', $event)"
+        />
+        <div class="border-t border-border pt-3">
+          <div class="mb-2 text-xs font-bold uppercase tracking-wide text-text-muted">
             {{ t('workspace.opSettings.advanced') }}
-          </summary>
-          <div class="mt-3 grid grid-cols-2 gap-2">
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.conflictLoser') }}</span>
-              <select
-                class="field-input"
-                :value="cfg.conflictLoser ?? ''"
-                :disabled="disabled"
-                @change="patchStr('conflictLoser', ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="">{{ t('common.select') }}</option>
-                <option v-for="o in conflictLoserOptions" :key="o.value" :value="o.value">
-                  {{ t(o.labelKey) }}
-                </option>
-              </select>
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.conflictSuffix') }}</span>
-              <input
-                class="field-input"
-                :value="cfg.conflictSuffix ?? ''"
-                :disabled="disabled"
-                @change="patchStr('conflictSuffix', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label class="field-label !mb-0">
-              <span>{{ t('workspace.opSettings.maxLock') }}</span>
-              <input
-                class="field-input"
-                placeholder="15m"
-                :value="cfg.maxLock ?? ''"
-                :disabled="disabled"
-                @change="patchStr('maxLock', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <CustomField
+              kind="select"
+              :model-value="cfg.conflictLoser ?? ''"
+              :label="t('workspace.opSettings.conflictLoser')"
+              :options="conflictLoserOptionList"
+              :disabled="disabled"
+              @change="patchStr('conflictLoser', $event)"
+            />
+            <CustomField
+              :model-value="cfg.conflictSuffix ?? ''"
+              :label="t('workspace.opSettings.conflictSuffix')"
+              :disabled="disabled"
+              @change="patchStr('conflictSuffix', $event)"
+            />
+            <CustomField
+              :model-value="cfg.maxLock ?? ''"
+              :label="t('workspace.opSettings.maxLock')"
+              placeholder="15m"
+              :disabled="disabled"
+              @change="patchStr('maxLock', $event)"
+            />
           </div>
           <div class="mt-2 flex flex-wrap gap-4">
             <AppCheckbox
@@ -755,8 +662,8 @@ function removeExclude(i: number) {
               @update:model-value="patchBool('checkAccess', !!$event)"
             />
           </div>
-        </details>
+        </div>
       </div>
-    </details>
+    </section>
   </div>
 </template>

@@ -15,7 +15,7 @@ defineProps<{
 <template>
   <label
     class="group inline-flex cursor-pointer select-none items-center gap-2.5 text-[13px] font-bold text-text"
-    :class="disabled && 'cursor-not-allowed opacity-50'"
+    :class="disabled && 'cursor-not-allowed text-text-dim opacity-60'"
   >
     <input
       v-model="model"
@@ -28,6 +28,7 @@ defineProps<{
       class="relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border border-border text-text transition-colors duration-150"
       :class="[
         model ? 'bg-accent' : 'bg-bg group-hover:bg-surface-hover',
+        disabled && 'border-dashed bg-surface-hover',
       ]"
       aria-hidden="true"
     >

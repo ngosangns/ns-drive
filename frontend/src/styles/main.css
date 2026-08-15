@@ -1,7 +1,8 @@
 @import 'tailwindcss';
 
-/* Solarized paper tokens — same Solarized hues, quieter chrome.
- * Light (default) is Solarized Light paper. Dark is Solarized Dark.
+/* Paper tokens: light is Solarized paper, dark is graphite + teal.
+ * Light (default) stays Solarized Light. Dark uses an accessible dark UI
+ * palette inspired by Radix neutral/semantic scales.
  */
 :root {
   --color-bg: #fdf6e3; /* base3 */
@@ -41,25 +42,25 @@
 }
 
 html.dark {
-  --color-bg: #002b36; /* base03 */
-  --color-bg-secondary: #073642; /* base02 */
-  --color-surface: #073642;
-  --color-surface-hover: #0a3a47;
-  --color-border: #586e75;
-  --color-border-muted: #657b83;
-  --color-text: #fdf6e3;
-  --color-text-muted: #93a1a1;
-  --color-text-dim: #657b83;
-  --color-accent: #b58900;
-  --color-accent-strong: #d5c48c;
-  --color-success: #859900;
-  --color-warning: #b58900;
-  --color-danger: #dc322f;
-  --color-running: #b58900;
-  --color-completed: #859900;
-  --color-failed: #dc322f;
-  --color-shadow: #001f27;
-  --color-info: #268bd2;
+  --color-bg: #0b0f13;
+  --color-bg-secondary: #11161c;
+  --color-surface: #151b22;
+  --color-surface-hover: #1c242d;
+  --color-border: #2b3540;
+  --color-border-muted: #42505e;
+  --color-text: #eef3f8;
+  --color-text-muted: #a4b1bf;
+  --color-text-dim: #758390;
+  --color-accent: #37c8c8;
+  --color-accent-strong: #6ee7df;
+  --color-success: #5cc786;
+  --color-warning: #e7b866;
+  --color-danger: #eb6b6f;
+  --color-running: #37c8c8;
+  --color-completed: #5cc786;
+  --color-failed: #eb6b6f;
+  --color-shadow: #05080c;
+  --color-info: #5ca8e8;
   color-scheme: dark;
 }
 
@@ -186,23 +187,23 @@ a {
     @apply rounded-md border border-dashed border-border-muted bg-bg/50;
   }
   .btn-primary {
-    @apply inline-flex items-center gap-1.5 rounded-md border border-border bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-text transition-colors duration-150 hover:bg-accent-strong/30 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center gap-1.5 rounded-md border border-border bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-text transition-colors duration-150 hover:bg-accent-strong/30 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-surface-hover disabled:text-text-dim disabled:opacity-60;
   }
   .btn-secondary {
-    @apply inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-3 py-1.5 text-[13px] font-semibold text-text transition-colors duration-150 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-3 py-1.5 text-[13px] font-semibold text-text transition-colors duration-150 hover:bg-surface-hover disabled:cursor-not-allowed disabled:border-dashed disabled:bg-surface-hover disabled:text-text-dim disabled:opacity-60;
   }
   .btn-ghost {
-    @apply inline-flex items-center gap-1 rounded-md border border-transparent bg-transparent px-2.5 py-1.5 text-xs font-semibold text-text transition-colors hover:bg-text/10 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center gap-1 rounded-md border border-transparent bg-transparent px-2.5 py-1.5 text-xs font-semibold text-text transition-colors hover:bg-text/10 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-surface-hover disabled:text-text-dim disabled:opacity-60;
   }
   .btn-danger,
   button.danger {
-    @apply inline-flex items-center gap-1 rounded-md border border-border bg-danger/15 px-2 py-1.5 text-xs font-semibold text-danger transition-colors duration-150 hover:bg-danger/25 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center gap-1 rounded-md border border-border bg-danger/15 px-2 py-1.5 text-xs font-semibold text-danger transition-colors duration-150 hover:bg-danger/25 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-surface-hover disabled:text-text-dim disabled:opacity-60;
   }
   .btn-icon {
-    @apply flex h-8 w-8 items-center justify-center rounded-md border border-transparent bg-transparent text-text transition-colors hover:bg-text/10;
+    @apply flex h-8 w-8 items-center justify-center rounded-md border border-transparent bg-transparent text-text transition-colors hover:bg-text/10 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-surface-hover disabled:text-text-dim disabled:opacity-60;
   }
   .field-input {
-    @apply box-border h-9 w-full rounded-md border border-border bg-bg px-2.5 font-mono text-[13px] leading-none text-text disabled:opacity-60;
+    @apply box-border h-9 w-full rounded-md border border-border bg-bg px-2.5 font-mono text-[13px] leading-none text-text disabled:cursor-not-allowed disabled:border-dashed disabled:bg-surface-hover disabled:text-text-dim disabled:opacity-60;
   }
   /* Native <select> defaults (line-box, appearance) often render taller than
    * <input type="text"> with the same padding — normalize both to h-9. */

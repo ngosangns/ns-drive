@@ -55,6 +55,9 @@ const vfNodes = computed<Node[]>(() =>
       label: n.label,
       failed: false,
       running: running.value,
+      onDelete: () => {
+        if (!running.value) canvas.removeNode(n.id)
+      },
     },
   })),
 )
@@ -62,7 +65,10 @@ const vfNodes = computed<Node[]>(() =>
 const vfEdges = computed<Edge[]>(() => {
   const flowId = activeFlow.value?.id
   const snap = flowId ? flows.opSyncStatus[flowId] : null
-  return graph.value.edges.map((e) => ({
+  const nodeIds = new Set(graph.value.nodes.map((n) => n.id))
+  // Filter edges to only those with valid existing endpoints
+  const validEdges = graph.value.edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
+  return validEdges.map((e) => ({
     id: e.id,
     source: e.source,
     target: e.target,
@@ -116,6 +122,10 @@ function onDelete() {
   if (selection.value?.kind === 'node') void canvas.removeNode(selection.value.id)
   if (selection.value?.kind === 'edge') void canvas.removeEdge(selection.value.id)
 }
+
+function onViewportChange(vp: { x: number; y: number; zoom: number }) {
+  canvas.updateViewport(vp)
+}
 </script>
 
 <template>
@@ -139,6 +149,7 @@ function onDelete() {
       @edge-click="onEdgeClick"
       @pane-click="onPaneClick"
       @node-drag-stop="onNodeDragStop"
+      @viewport-change="onViewportChange"
     >
       <Background pattern-color="var(--color-border-muted)" :gap="18" />
       <Controls />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, inject, ref, watch, type Ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -9,40 +9,40 @@ import {
   PhCircle,
   PhGearSix,
   PhSquaresFour,
+  PhGlobe,
 } from '@phosphor-icons/vue'
 import BrandMark from '@/components/brand/BrandMark.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
-import { api } from '@/api/client'
+import { useLocaleStore } from '@/stores/locale'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
 import { cn } from '@/lib/cn'
+import type { EventStreamState } from '@/composables/useEventStream'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 const theme = useThemeStore()
+const localeStore = useLocaleStore()
 const router = useRouter()
 const route = useRoute()
 const { confirmDialog } = useConfirmDialog()
 const toast = useToast()
 
-const online = ref(false)
-const checking = ref(true)
+const eventsState = inject<Ref<EventStreamState>>('eventsState', ref('connecting'))
+const checking = computed(() => eventsState.value === 'connecting')
+const online = computed(() => eventsState.value === 'connected')
 
-async function checkHealth() {
-  try {
-    await api.get('/api/v1/status')
-    online.value = true
-  } catch {
-    online.value = false
-  } finally {
-    checking.value = false
+let offlineNotified = false
+watch(eventsState, (next, prev) => {
+  if (next === 'connected') {
+    offlineNotified = false
+    return
   }
-}
-
-onMounted(() => {
-  checkHealth()
-  setInterval(checkHealth, 15000)
+  if (next === 'disconnected' && prev === 'connected' && auth.unlocked && !offlineNotified) {
+    offlineNotified = true
+    toast.error(t('topbar.connectionLost'))
+  }
 })
 
 async function onLock() {
@@ -66,6 +66,10 @@ function goWorkspace() {
 
 function goSettings() {
   router.push({ name: 'settings' })
+}
+
+function setLocale(value: string) {
+  if (value === 'en' || value === 'vi') localeStore.setLocale(value)
 }
 </script>
 
@@ -132,6 +136,20 @@ function goSettings() {
       <PhGearSix :size="18" weight="bold" />
       <span class="hidden sm:inline">{{ t('nav.settings') }}</span>
     </button>
+
+    <div class="flex items-center gap-1.5" :title="t('settings.language')">
+      <PhGlobe :size="16" weight="bold" class="shrink-0 text-text-muted" />
+      <select
+        class="h-8 rounded-md border border-border bg-bg px-2 text-xs font-semibold text-text"
+        :value="localeStore.locale"
+        data-testid="lang-select"
+        :aria-label="t('settings.language')"
+        @change="setLocale(($event.target as HTMLSelectElement).value)"
+      >
+        <option value="en">{{ t('settings.english') }}</option>
+        <option value="vi">{{ t('settings.vietnamese') }}</option>
+      </select>
+    </div>
 
     <button
       class="btn-icon"

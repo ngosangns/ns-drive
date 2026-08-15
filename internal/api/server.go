@@ -106,6 +106,7 @@ func (s *Server) apiRouter() chi.Router {
 	r.Post("/auth/setup", s.handleSetup)
 	r.Post("/auth/lock", s.handleLock)
 	r.Post("/auth/change-password", s.handleChangePassword)
+	r.Post("/auth/remove-password", s.handleRemovePassword)
 	r.Get("/events", s.handleSSE)
 	r.Get("/state", s.handleStateSocket)
 	r.Get("/runtime", s.handleRuntime)
@@ -144,9 +145,6 @@ func (s *Server) apiRouter() chi.Router {
 	// Operations (filesystem browse for path pickers; one-shot file ops stay API-only)
 	r.Post("/operations", s.handleStartOperation)
 	r.Get("/operations/fs", s.handleBrowseFS)
-
-	// Self-update (Settings UI)
-	r.Post("/self-update", s.handleSelfUpdate)
 
 	return r
 }

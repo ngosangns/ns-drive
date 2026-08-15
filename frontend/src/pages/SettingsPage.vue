@@ -2,26 +2,23 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { PhKey, PhSun, PhMoon, PhLock, PhDownloadSimple, PhGlobe } from '@phosphor-icons/vue'
-import { useThemeStore } from '@/stores/theme'
-import { useLocaleStore } from '@/stores/locale'
+import { PhKey, PhLock } from '@phosphor-icons/vue'
 import { useAuthStore } from '@/stores/auth'
 import { useApi } from '@/composables/useApi'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import AppAlert from '@/components/ui/Alert.vue'
-import type { AppLocale } from '@/i18n'
 
 const { t } = useI18n()
-const theme = useThemeStore()
-const localeStore = useLocaleStore()
 const auth = useAuthStore()
 const api = useApi()
 const router = useRouter()
+const { confirmDialog } = useConfirmDialog()
 
 const settings = ref<Record<string, string>>({})
 const newPwd = ref('')
 const oldPwd = ref('')
+const removePwd = ref('')
 const msg = ref<{ kind: 'ok' | 'err'; text: string } | null>(null)
-const updateMsg = ref<string>('')
 
 onMounted(async () => {
   settings.value = (await api.get<Record<string, string>>('/api/v1/settings')) ?? {}
@@ -47,21 +44,6 @@ async function changePassword() {
   }
 }
 
-async function selfUpdate() {
-  updateMsg.value = t('settings.checkingUpdate')
-  try {
-    const r = await fetch('/api/v1/self-update', { method: 'POST', credentials: 'same-origin' })
-    const j = await r.json().catch(() => ({} as { output?: string; error?: string }))
-    if (!r.ok) {
-      updateMsg.value = j.error || j.output || `update failed (${r.status})`
-      return
-    }
-    updateMsg.value = j.output ?? JSON.stringify(j)
-  } catch (e: any) {
-    updateMsg.value = e?.message ?? 'update failed'
-  }
-}
-
 async function lockApp() {
   try {
     await auth.lock()
@@ -71,8 +53,22 @@ async function lockApp() {
   }
 }
 
-function setLang(code: AppLocale) {
-  localeStore.setLocale(code)
+async function removePassword() {
+  if (!removePwd.value) return
+  const ok = await confirmDialog({
+    title: t('settings.removePassword'),
+    message: t('settings.removePasswordConfirm'),
+    confirmText: t('settings.removePassword'),
+    confirmVariant: 'danger',
+  })
+  if (!ok) return
+  try {
+    await api.post('/api/v1/auth/remove-password', { password: removePwd.value })
+    removePwd.value = ''
+    msg.value = { kind: 'ok', text: t('settings.removePasswordDone') }
+  } catch (e: any) {
+    msg.value = { kind: 'err', text: e?.message ?? 'remove failed' }
+  }
 }
 </script>
 
@@ -91,66 +87,6 @@ function setLang(code: AppLocale) {
     >
       {{ msg.text }}
     </AppAlert>
-
-    <section class="card mb-3 px-5 py-4.5">
-      <h2 class="mb-3.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
-        <PhSun :size="14" weight="bold" /> {{ t('settings.appearance') }}
-      </h2>
-      <div class="flex items-center justify-between gap-4">
-        <div>
-          <div class="text-[13px] font-medium">{{ t('settings.theme') }}</div>
-          <div class="mt-0.5 text-xs text-text-dim">{{ t('settings.themeHelp') }}</div>
-        </div>
-        <div class="flex gap-1.5">
-          <button
-            class="toggle"
-            :class="{ on: theme.preference === 'dark' }"
-            data-testid="theme-dark"
-            @click="theme.setTheme('dark')"
-          >
-            <PhMoon :size="14" weight="bold" /> {{ t('settings.dark') }}
-          </button>
-          <button
-            class="toggle"
-            :class="{ on: theme.preference === 'light' }"
-            data-testid="theme-light"
-            @click="theme.setTheme('light')"
-          >
-            <PhSun :size="14" weight="bold" /> {{ t('settings.light') }}
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <section class="card mb-3 px-5 py-4.5">
-      <h2 class="mb-3.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
-        <PhGlobe :size="14" weight="bold" /> {{ t('settings.language') }}
-      </h2>
-      <div class="flex items-center justify-between gap-4">
-        <div>
-          <div class="text-[13px] font-medium">{{ t('settings.language') }}</div>
-          <div class="mt-0.5 text-xs text-text-dim">{{ t('settings.languageHelp') }}</div>
-        </div>
-        <div class="flex gap-1.5">
-          <button
-            class="toggle"
-            :class="{ on: localeStore.locale === 'en' }"
-            data-testid="lang-en"
-            @click="setLang('en')"
-          >
-            {{ t('settings.english') }}
-          </button>
-          <button
-            class="toggle"
-            :class="{ on: localeStore.locale === 'vi' }"
-            data-testid="lang-vi"
-            @click="setLang('vi')"
-          >
-            {{ t('settings.vietnamese') }}
-          </button>
-        </div>
-      </div>
-    </section>
 
     <section class="card mb-3 px-5 py-4.5">
       <h2 class="mb-3.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
@@ -191,6 +127,35 @@ function setLang(code: AppLocale) {
     </section>
 
     <section class="card mb-3 px-5 py-4.5">
+      <h2 class="mb-3.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+        <PhLock :size="14" weight="bold" /> {{ t('settings.removePassword') }}
+      </h2>
+      <p class="mb-3 text-xs text-text-dim">{{ t('settings.removePasswordHelp') }}</p>
+      <div class="mb-3 grid grid-cols-1 gap-2.5 md:grid-cols-2">
+        <label class="field-label">
+          <span>{{ t('settings.currentPassword') }}</span>
+          <input
+            v-model="removePwd"
+            type="password"
+            autocomplete="current-password"
+            class="field-input"
+            data-testid="settings-remove-password"
+          />
+        </label>
+      </div>
+      <div class="flex justify-end">
+        <button
+          class="danger !px-3.5 !py-1.5"
+          :disabled="!removePwd"
+          data-testid="settings-remove-password-btn"
+          @click="removePassword"
+        >
+          {{ t('settings.removePassword') }}
+        </button>
+      </div>
+    </section>
+
+    <section class="card mb-3 px-5 py-4.5">
       <h2 class="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
         <PhLock :size="14" weight="bold" /> {{ t('settings.lockNow') }}
       </h2>
@@ -200,20 +165,6 @@ function setLang(code: AppLocale) {
           {{ t('settings.lockApp') }}
         </button>
       </div>
-    </section>
-
-    <section class="card mb-3 px-5 py-4.5">
-      <h2 class="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
-        <PhDownloadSimple :size="14" weight="bold" /> {{ t('settings.selfUpdate') }}
-      </h2>
-      <p class="mb-3 text-xs text-text-dim">{{ t('settings.selfUpdateHelp') }}</p>
-      <div class="flex justify-end">
-        <button class="btn-primary" @click="selfUpdate">{{ t('settings.checkInstall') }}</button>
-      </div>
-      <pre
-        v-if="updateMsg"
-        class="mt-3 max-h-[200px] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-bg p-2.5 font-mono text-[11px] text-text-muted"
-      >{{ updateMsg }}</pre>
     </section>
   </div>
   </div>

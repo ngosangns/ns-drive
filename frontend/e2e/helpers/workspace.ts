@@ -18,6 +18,17 @@ export async function ensureFlow(page: Page): Promise<string> {
     return (card?.getAttribute('data-testid') ?? '').replace(/^flow-card-/, '')
   })
   if (!id) throw new Error('expected flow card id')
+
+  // If flow has no operation yet, add one for tests expecting an active operation/edge
+  const hasOp = await page.evaluate(() => !!document.querySelector('[data-testid^="op-row-"]'))
+  if (!hasOp) {
+    const addOpBtn = await page.$('[data-testid="flows-add-op"]')
+    if (addOpBtn) {
+      await clickTestId(page, 'flows-add-op')
+      await page.waitForSelector('[data-testid^="op-row-"]')
+    }
+  }
+
   return id
 }
 

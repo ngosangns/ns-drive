@@ -3,13 +3,22 @@
  * remain authoritative only after the backend persists and broadcasts a new
  * snapshot, so reconnecting or reloading never depends on browser state.
  */
-import { onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
+import {
+  getCurrentInstance,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+  type Ref,
+} from 'vue'
 import { useFlowsStore } from '@/stores/flows'
 import { useRemotesStore } from '@/stores/remotes'
 import { isFlowTopic, isSyncTopic, parseFlowPayload } from '@/lib/sseRuntime'
 import type { StateSnapshot } from '@/api/types'
 
 export type UseEventStreamOptions = { enabled?: Ref<boolean> }
+
+export type EventStreamState = 'connecting' | 'connected' | 'disconnected'
 
 type StateFrame = {
   type?: string
@@ -36,6 +45,7 @@ export function useEventStream(opts: UseEventStreamOptions = {}) {
   const flows = useFlowsStore()
   const remotes = useRemotesStore()
   const connected = ref(false)
+  const state = ref<EventStreamState>('connecting')
   let socket: WebSocket | null = null
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let intentionalClose = false
@@ -72,10 +82,12 @@ export function useEventStream(opts: UseEventStreamOptions = {}) {
 
   function connect() {
     intentionalClose = false
+    state.value = 'connecting'
     socket?.close()
     socket = new WebSocket(stateSocketURL())
     socket.onopen = () => {
       connected.value = true
+      state.value = 'connected'
       reconnectDelay = 500
     }
     socket.onmessage = (event) => {
@@ -83,9 +95,14 @@ export function useEventStream(opts: UseEventStreamOptions = {}) {
       if (frame?.type === 'state.snapshot' && frame.snapshot) hydrate(frame.snapshot)
       if (frame?.type === 'runtime.event' && frame.topic) applyRuntimeEvent(frame.topic, frame.data)
     }
-    socket.onerror = () => socket?.close()
+    socket.onerror = () => {
+      connected.value = false
+      state.value = 'disconnected'
+      socket?.close()
+    }
     socket.onclose = () => {
       connected.value = false
+      state.value = 'disconnected'
       socket = null
       scheduleReconnect()
     }
@@ -98,6 +115,7 @@ export function useEventStream(opts: UseEventStreamOptions = {}) {
     socket?.close()
     socket = null
     connected.value = false
+    state.value = 'disconnected'
   }
 
   if (opts.enabled) {
@@ -105,7 +123,7 @@ export function useEventStream(opts: UseEventStreamOptions = {}) {
   } else {
     onMounted(connect)
   }
-  onUnmounted(disconnect)
+  if (getCurrentInstance()) onUnmounted(disconnect)
 
-  return { connected, connect, disconnect }
+  return { connected, state, connect, disconnect }
 }

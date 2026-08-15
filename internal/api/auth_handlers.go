@@ -122,6 +122,44 @@ func (s *Server) handleLock(w http.ResponseWriter, r *http.Request) {
 	respondOK(w, map[string]bool{"ok": true})
 }
 
+// handleRemovePassword removes master-password protection and decrypts files permanently.
+func (s *Server) handleRemovePassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := parseJSON(r, &req); err != nil {
+		respondError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+
+	// Close sqlite/rclone first. RemovePassword decrypts config files; doing
+	// that while the data plane still holds them yanks the live db/wal/shm.
+	if s.app.BeforeLock != nil {
+		if err := s.app.BeforeLock(); err != nil {
+			respondError(w, http.StatusInternalServerError, "lock_failed", err.Error())
+			return
+		}
+	}
+
+	if err := s.app.Auth.RemovePassword(req.Password); err != nil {
+		if s.app.AfterUnlock != nil {
+			_ = s.app.AfterUnlock(r.Context())
+		}
+		respondError(w, http.StatusForbidden, "remove_failed", err.Error())
+		return
+	}
+
+	// Re-open the data plane without encryption.
+	if s.app.AfterUnlock != nil {
+		if err := s.app.AfterUnlock(r.Context()); err != nil {
+			respondError(w, http.StatusInternalServerError, "data_plane", err.Error())
+			return
+		}
+	}
+
+	respondOK(w, map[string]bool{"ok": true})
+}
+
 // handleChangePassword changes the master password.
 func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	var req struct {

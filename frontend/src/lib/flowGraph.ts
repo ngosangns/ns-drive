@@ -154,6 +154,7 @@ export function toGraph(flow: Flow): FlowGraph {
   for (const op of ops) {
     const src = byKey.get(locationKey(op.source_remote, op.source_path))
     const dst = byKey.get(locationKey(op.target_remote, op.target_path))
+    // Drop edges that don't have both source and target endpoints
     if (!src || !dst) continue
     edges.push({
       id: op.id,
@@ -202,10 +203,12 @@ export function fromGraph(
   const prevById = new Map((previousOps ?? []).map((op) => [op.id, op]))
   const operations: Operation[] = []
 
-  graph.edges.forEach((e, i) => {
-    const src = nodesById.get(e.source)
-    const dst = nodesById.get(e.target)
-    if (!src || !dst) return
+  // Filter out any dangling edges where source or target node is missing
+  const validEdges = graph.edges.filter((e) => nodesById.has(e.source) && nodesById.has(e.target))
+
+  validEdges.forEach((e, i) => {
+    const src = nodesById.get(e.source)!
+    const dst = nodesById.get(e.target)!
     const prev = prevById.get(e.id) ?? e.operation
     const action = normalizeFlowAction(e.action || prev?.action)
     const sc =

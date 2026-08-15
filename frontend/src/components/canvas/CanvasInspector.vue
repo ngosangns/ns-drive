@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhPlay, PhStop, PhFloppyDisk } from '@phosphor-icons/vue'
+import { PhPlay, PhStop, PhFloppyDisk, PhPlus } from '@phosphor-icons/vue'
 import { storeToRefs } from 'pinia'
 import { useCanvasStore } from '@/stores/canvas'
 import { useFlowsStore } from '@/stores/flows'
@@ -77,6 +77,18 @@ async function onSave() {
   toast.success(t('workspace.flowSaved', { name: activeFlow.value.name || t('workspace.untitledFlow') }))
 }
 
+function addNode() {
+  const vp = graph.value.viewport ?? { x: 0, y: 0, zoom: 1 }
+  const z = vp.zoom || 1
+  const el = document.querySelector('.vue-flow') as HTMLElement | null
+  const w = el?.clientWidth || window.innerWidth
+  const h = el?.clientHeight || window.innerHeight
+  // Canvas node dimensions: w=192, h=64 approximately
+  const centerX = Math.round((-vp.x + w / 2) / z - 96)
+  const centerY = Math.round((-vp.y + h / 2) / z - 32)
+  void canvas.addLocation('', `/new-${Date.now()}`, centerX, centerY)
+}
+
 function setNodePath(nodeId: string, composed: string) {
   const { remote, path } = parseComposed(composed)
   void canvas.updateNode(nodeId, { remote, path })
@@ -95,7 +107,7 @@ function setEdgeSync(cfg: Record<string, unknown>) {
 }
 
 const WIDTH_KEY = 'gn-drive:inspector-width'
-const DEFAULT_WIDTH = 512
+const DEFAULT_WIDTH = 712
 const MIN_WIDTH = 320
 
 const panelWidth = ref(readStoredWidth())
@@ -190,6 +202,15 @@ onUnmounted(() => {
             @click="onRun"
           >
             <PhPlay :size="14" weight="bold" /> {{ t('workspace.run') }}
+          </button>
+          <button
+            type="button"
+            class="btn-secondary !px-2.5 !py-1"
+            :disabled="running"
+            data-testid="canvas-add-node"
+            @click="addNode"
+          >
+            <PhPlus :size="14" weight="bold" /> {{ t('workspace.canvas.addNode') }}
           </button>
           <button
             type="button"

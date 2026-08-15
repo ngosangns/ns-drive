@@ -23,16 +23,16 @@ export const useCanvasStore = defineStore('canvas', () => {
   const activeFlowId = ref<string | null>(null)
   const selection = ref<CanvasSelection | null>(null)
   const dirty = ref(false)
-  let persistTimer: ReturnType<typeof setTimeout> | null = null
-  const PERSIST_DEBOUNCE_MS = 400
 
-  function schedulePersist() {
+  /** Apply local graph edits without triggering backend persistence. */
+  function updateLocal(patch: (g: FlowGraph, flow: Flow) => void) {
+    const flow = activeFlow.value
+    if (!flow || flowLocked(flow)) return
+    const g = toGraph(flow)
+    patch(g, flow)
+    const { operations, canvas_json } = fromGraph(g, flow.operations)
+    writeLocal({ ...flow, operations, canvas_json })
     dirty.value = true
-    if (persistTimer) clearTimeout(persistTimer)
-    persistTimer = setTimeout(() => {
-      persistTimer = null
-      void persist()
-    }, PERSIST_DEBOUNCE_MS)
   }
 
   const activeFlow = computed(() => flows.items.find((f) => f.id === activeFlowId.value) ?? null)
@@ -67,10 +67,6 @@ export const useCanvasStore = defineStore('canvas', () => {
   }
 
   async function persist(next?: FlowGraph, flow = activeFlow.value) {
-    if (persistTimer) {
-      clearTimeout(persistTimer)
-      persistTimer = null
-    }
     if (!flow || flowLocked(flow)) return
     const g = next ?? toGraph(flow)
     const { operations, canvas_json } = fromGraph(g, flow.operations)
@@ -94,17 +90,14 @@ export const useCanvasStore = defineStore('canvas', () => {
   async function addFlow(name: string) {
     const f = emptyFlow()
     f.name = name
-    f.operations = [emptyOperation()]
-    const g = toGraph(f)
-    const { operations, canvas_json } = fromGraph(g, f.operations)
-    f.operations = operations
-    f.canvas_json = canvas_json
+    f.operations = []
+    f.canvas_json = { viewport: { x: 0, y: 0, zoom: 1 }, nodes: [] }
     await flows.save(f)
     selectFlow(f.id)
     return f
   }
 
-  async function addLocation(remote: string, path = '/', x = 80, y = 80) {
+  function addLocation(remote: string, path = '/', x = 80, y = 80) {
     const flow = activeFlow.value
     if (!flow || flowLocked(flow)) return null
     const g = toGraph(flow)
@@ -124,8 +117,9 @@ export const useCanvasStore = defineStore('canvas', () => {
       key,
     }
     g.nodes.push(node)
+    const { operations, canvas_json } = fromGraph(g, flow.operations)
+    writeLocal({ ...flow, operations, canvas_json })
     dirty.value = true
-    await persist(g, flow)
     selection.value = { kind: 'node', id: node.id }
     return node.id
   }
@@ -157,23 +151,23 @@ export const useCanvasStore = defineStore('canvas', () => {
     return { ok: true as const, id: op.id }
   }
 
-  async function removeNode(id: string) {
+  function removeNode(id: string) {
     patchActive((g) => {
       g.edges = g.edges.filter((e) => e.source !== id && e.target !== id)
       g.nodes = g.nodes.filter((n) => n.id !== id)
-    }, true)
+    })
     selection.value = { kind: 'flow' }
   }
 
-  async function removeEdge(id: string) {
+  function removeEdge(id: string) {
     patchActive((g) => {
       g.edges = g.edges.filter((e) => e.id !== id)
-    }, true)
+    })
     selection.value = { kind: 'flow' }
   }
 
   function updateNode(id: string, patch: { remote?: string; path?: string; label?: string }) {
-    patchActive((g) => {
+    updateLocal((g) => {
       const n = g.nodes.find((x) => x.id === id)
       if (!n) return
       if (patch.remote !== undefined) n.remote = patch.remote
@@ -181,17 +175,22 @@ export const useCanvasStore = defineStore('canvas', () => {
       if (patch.label !== undefined) n.label = patch.label
       n.key = locationKey(n.remote, n.path)
     })
-    schedulePersist()
   }
 
   function updateEdge(id: string, patch: Partial<Operation>) {
-    patchActive((g) => {
+    updateLocal((g) => {
       const e = g.edges.find((x) => x.id === id)
       if (!e) return
+      // If endpoint nodes are missing, prune the edge
+      const src = g.nodes.find((n) => n.id === e.source)
+      const dst = g.nodes.find((n) => n.id === e.target)
+      if (!src || !dst) {
+        g.edges = g.edges.filter((edge) => edge.id !== id)
+        return
+      }
       e.operation = withSyncedAction({ ...e.operation, ...patch })
       if (patch.action) e.action = patch.action
     })
-    schedulePersist()
   }
 
   async function updatePositions(
@@ -219,12 +218,21 @@ export const useCanvasStore = defineStore('canvas', () => {
     await persist(g, flow)
   }
 
-  async function updateFlowMeta(patch: Partial<Flow>) {
+  function updateFlowMeta(patch: Partial<Flow>) {
     const flow = activeFlow.value
     if (!flow || flowLocked(flow)) return
     dirty.value = true
-    await flows.save({ ...flow, ...patch })
-    dirty.value = false
+    const updated = { ...flow, ...patch }
+    writeLocal(updated)
+  }
+
+  function updateViewport(vp: FlowGraph['viewport']) {
+    const flow = activeFlow.value
+    if (!flow || !vp) return
+    const g = toGraph(flow)
+    g.viewport = vp
+    const { operations, canvas_json } = fromGraph(g, flow.operations)
+    writeLocal({ ...flow, operations, canvas_json })
   }
 
   return {
@@ -244,6 +252,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     updateEdge,
     updatePositions,
     updateFlowMeta,
+    updateViewport,
     persist,
   }
 })

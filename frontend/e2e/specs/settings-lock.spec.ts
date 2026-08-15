@@ -40,8 +40,6 @@ describe('settings and lock', () => {
     await ensureSession(page)
     await clickTestId(page, 'nav-settings')
     await waitForTestId(page, 'page-settings')
-    await clickTestId(page, 'theme-light')
-    await clickTestId(page, 'theme-dark')
 
     const { password } = loadRuntime()
     await typeTestId(page, 'settings-old-password', password)
