@@ -73,8 +73,11 @@ type Engine struct {
 	// dangerous for bisync). Keyed by profile name.
 	runningMu sync.Mutex
 	running   map[string]struct{}
-	ctx       context.Context
-	cancel    context.CancelFunc
+	// ctxMu guards ctx/cancel: Start/Stop write them while StartSync,
+	// StartPathSync, AttachStore, etc. read them from other goroutines.
+	ctxMu  sync.RWMutex
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // SyncClient is the subset of rclone.Client used by the engine.
@@ -113,7 +116,10 @@ func (e *Engine) SetFlowExecutor(fe FlowExecutor) {
 func (e *Engine) AttachStore(st *store.Store, rc SyncClient) {
 	e.store = st
 	e.rclone = rc
-	if e.ctx != nil && st != nil {
+	e.ctxMu.RLock()
+	running := e.ctx != nil
+	e.ctxMu.RUnlock()
+	if running && st != nil {
 		e.loadSchedules()
 	}
 }
@@ -126,10 +132,13 @@ func (e *Engine) DetachStore() {
 
 // Start launches the cron scheduler goroutine.
 func (e *Engine) Start(ctx context.Context) error {
+	e.ctxMu.Lock()
 	if e.ctx != nil {
+		e.ctxMu.Unlock()
 		return nil // already started
 	}
 	e.ctx, e.cancel = context.WithCancel(ctx)
+	e.ctxMu.Unlock()
 	e.cron = cron.New(cron.WithSeconds())
 	e.schedule = make(map[string]cron.EntryID)
 
@@ -144,22 +153,33 @@ func (e *Engine) Start(ctx context.Context) error {
 
 // Ctx returns the engine's context. It is cancelled when the engine stops.
 func (e *Engine) Ctx() context.Context {
+	e.ctxMu.RLock()
+	defer e.ctxMu.RUnlock()
 	return e.ctx
 }
 
 // Cancel cancels the engine's context. Useful for tests.
 func (e *Engine) Cancel() {
-	if e.cancel != nil {
-		e.cancel()
+	e.ctxMu.RLock()
+	cancel := e.cancel
+	e.ctxMu.RUnlock()
+	if cancel != nil {
+		cancel()
 	}
 }
 
 // Stop gracefully shuts down the engine.
 func (e *Engine) Stop(ctx context.Context) error {
-	if e.cancel == nil {
+	e.ctxMu.Lock()
+	cancel := e.cancel
+	if cancel == nil {
+		e.ctxMu.Unlock()
 		return nil
 	}
-	e.cancel()
+	e.ctx = nil
+	e.cancel = nil
+	e.ctxMu.Unlock()
+	cancel()
 	if e.cron != nil {
 		<-e.cron.Stop().Done()
 	}
@@ -175,15 +195,13 @@ func (e *Engine) Stop(ctx context.Context) error {
 	e.runningMu.Unlock()
 	e.schedule = nil
 	e.cron = nil
-	e.ctx = nil
-	e.cancel = nil
 	e.log.Info("syncengine: stopped")
 	return nil
 }
 
 // StartSync starts a sync task for a named profile and returns its taskID.
 func (e *Engine) StartSync(ctx context.Context, action, profileName string) (string, error) {
-	if e.ctx == nil {
+	if e.Ctx() == nil {
 		return "", ErrNotRunning
 	}
 	if e.store == nil {
@@ -202,7 +220,7 @@ func (e *Engine) StartSync(ctx context.Context, action, profileName string) (str
 // opts may be nil; when set, rclone flags (parallel, bandwidth, filters, …)
 // are taken from the profile fields (Name/From/To are overwritten).
 func (e *Engine) StartPathSync(ctx context.Context, action, busyKey, from, to string, opts *store.Profile) (string, error) {
-	if e.ctx == nil {
+	if e.Ctx() == nil {
 		return "", ErrNotRunning
 	}
 	if from == "" || to == "" {
@@ -231,22 +249,25 @@ func (e *Engine) startWithProfile(ctx context.Context, action, busyKey string, p
 	e.running[busyKey] = struct{}{}
 	e.runningMu.Unlock()
 
+	parent := e.Ctx()
+	if parent == nil {
+		e.runningMu.Lock()
+		delete(e.running, busyKey)
+		e.runningMu.Unlock()
+		return "", ErrNotRunning
+	}
+
 	task := &Task{
 		ID:     uuid.New().String(),
 		Name:   busyKey,
 		Action: action,
 		Status: "running",
 	}
-	e.active.Store(task.ID, task)
-	parent := e.ctx
-	if parent == nil {
-		e.runningMu.Lock()
-		delete(e.running, busyKey)
-		e.runningMu.Unlock()
-		e.active.Delete(task.ID)
-		return "", ErrNotRunning
-	}
 	task.ctx, task.cancel = context.WithCancel(parent)
+	// Publish only after ctx/cancel are set: Stop() ranges over active tasks
+	// and calls Cancel() on whatever it finds, so a task must never be
+	// visible there before its cancel func exists.
+	e.active.Store(task.ID, task)
 
 	go e.runSync(task, p, action)
 
